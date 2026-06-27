@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyDVC - Trợ lý thoại thông minh cho Dịch vụ công Việt Nam</title>
+    
+    <!-- Atkinson Hyperlegible Google Font - Designed for maximum readability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="header">
+        <div class="container nav-wrapper">
+            <a href="#" class="logo-group" aria-label="Trang chủ EasyDVC">
+                <!-- SVG Microphone Logo -->
+                <svg class="logo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+                <span class="logo-text">EasyDVC</span>
+                <span class="logo-badge" aria-label="Phiên bản 1.0.0">v1.0.0</span>
+            </a>
+            
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#tinh-nang">Tính năng</a></li>
+                    <li><a href="#bao-mat">Bảo mật Codex</a></li>
+                    <li><a href="#huong-dan">Hướng dẫn</a></li>
+                    <li><a href="#faq">Giải đáp</a></li>
+                </ul>
+            </nav>
+            
+            <a href="https://github.com/blu1606/DVC" class="btn btn-primary" aria-label="Tải extension từ Chrome Store">
+                <!-- Chrome SVG Icon -->
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 18.25c-3.452 0-6.25-2.798-6.25-6.25S8.548 5.75 12 5.75s6.25 2.798 6.25 6.25-2.798 6.25-6.25 6.25z"/>
+                </svg>
+                Cài đặt Extension
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero-grid">
+            <div>
+                <h1 class="hero-title">Trợ lý Giọng nói thông minh hỗ trợ Ông Bà làm Dịch vụ công</h1>
+                <p class="hero-description">
+                    <strong>EasyDVC</strong> là trợ lý giọng nói và điền tờ khai trực tuyến thông minh, đồng hành cùng chương trình chuyển đổi số quốc gia (Đề án 06). Giúp người cao tuổi dễ dàng tự làm thủ tục hành chính trực tuyến tại nhà mà không lo bị trả lại hồ sơ vì sai sót địa chính hoặc lỗi nhập liệu.
+                </p>
+                <div class="hero-ctas" style="margin-bottom: 24px;">
+                    <button class="btn btn-primary" onclick="startSim()" aria-label="Bắt đầu chạy thử tương tác ngay trên trang">
+                        Chạy thử tương tác
+                    </button>
+                    <a href="#huong-dan" class="btn btn-secondary" aria-label="Xem hướng dẫn cài đặt">
+                        Xem cách cài đặt
+                    </a>
+                </div>
+
+                <!-- Live PII Shield Tester (IKEA Effect) -->
+                <div class="ikea-container" aria-label="Bộ thử nghiệm Lá chắn Bảo mật PII">
+                    <div class="ikea-title">
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20" style="color: var(--color-primary)">
+                            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3.5 8V5.5a3.5 3.5 0 00-7 0V9h7z" clip-rule="evenodd"/>
+                        </svg>
+                        Tự thử nghiệm Lá chắn Bảo mật PII Shield
+                    </div>
+                    <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 10px;">
+                        Nhập thử số CCCD (12 số) hoặc SĐT (10 số) bất kỳ của bạn để xem PII Shield che giấu thông tin tại máy khách thế nào trước khi gửi ra ngoài:
+                    </p>
+                    <div class="ikea-row">
+                        <input type="text" class="ikea-input" id="ikea-input-field" placeholder="Ví dụ: 037199001234 hoặc 0912345678" aria-label="Nhập thông tin thử nghiệm">
+                        <button class="ikea-btn" onclick="testLivePII()">Chạy Lọc PII</button>
+                    </div>
+                    <div class="ikea-result" id="ikea-result-box"></div>
+                </div>
+            </div>
+            
+            <!-- Interactive Simulator Mockup -->
+            <div class="hero-visual" aria-label="Mô phỏng hoạt động của trợ lý thoại EasyDVC">
+                <div class="sim-header">
+                    <div class="sim-title-group">
+                        <div class="sim-dot" id="sim-dot-status" style="background-color: #10b981;"></div>
+                        <span class="sim-status" id="sim-status-text">Sẵn sàng hỗ trợ bác</span>
+                    </div>
+                    <span class="logo-badge">Mô phỏng</span>
+                </div>
+                
+                <div class="sim-content">
+                    <!-- Progress Stepper (Labor Illusion) -->
+                    <div class="stepper-box" id="sim-stepper">
+                        <div class="step-item" id="step-match">1. Nhận dạng form</div>
+                        <div class="step-item" id="step-pii">2. Bảo mật PII</div>
+                        <div class="step-item" id="step-fill">3. Điền tự động</div>
+                    </div>
+
+                    <div class="sim-chat-area" id="sim-chat-area">
+                        <div style="color: var(--color-text-muted); text-align: center; margin-top: 50px; font-size: 16px;">
+                            Click các nút <strong>Gợi ý thoại nhanh</strong> bên dưới hoặc bấm nút <strong>Chạy thử tương tác</strong> để xem cách hoạt động.
+                        </div>
+                    </div>
+                    
+                    <!-- PII Shield Modal Confirmation -->
+                    <div class="sim-modal" id="sim-modal">
+                        <div class="modal-title">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style="color: var(--color-success)">
+                                <path fill-rule="evenodd" d="M2.166 4.9C2.903 2.86 5.185 1.5 7.616 1.5h4.768c2.43 0 4.713 1.36 5.45 3.4.921 2.545.244 5.347-1.468 7.06a8.91 8.91 0 0 1-4.015 2.197l-.601.144a1 1 0 0 1-.464 0l-.601-.144a8.91 8.91 0 0 1-4.015-2.197C1.922 10.247 1.245 7.445 2.166 4.9zM10 11.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" clip-rule="evenodd" />
+                            </svg>
+                            Bảo vệ dữ liệu (PII Shield)
+                        </div>
+                        <p class="modal-text" id="modal-desc-text">Bạn có đồng ý điền số CCCD và SĐT thật vào biểu mẫu không?</p>
+                        <div class="modal-actions">
+                            <button class="btn-modal btn-modal-cancel" onclick="cancelPII()">Hủy</button>
+                            <button class="btn-modal btn-modal-confirm" onclick="confirmPII()">Đồng ý</button>
+                        </div>
+                    </div>
+
+                    <!-- Voice Wayfinder Suggestions -->
+                    <div class="sim-suggestions" id="sim-suggestions">
+                        <button class="sim-pill" onclick="startScenario('bhyt')">🎙️ Cấp lại thẻ BHYT</button>
+                        <button class="sim-pill" onclick="startScenario('thuongtru')">🎙️ Đăng ký thường trú</button>
+                    </div>
+
+                    <div class="sim-controls">
+                        <button class="btn-speak" id="btn-speak" onclick="toggleSpeech()" aria-label="Bấm để nói">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                            </svg>
+                        </button>
+                        
+                        <div class="waveform" id="waveform">
+                            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Grid Features Section -->
+    <section class="section" id="tinh-nang">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Tính năng vượt trội</span>
+                <h2 class="section-title">Hỗ trợ toàn diện bằng Trí tuệ nhân tạo chuyên biệt</h2>
+                <p class="section-description">Giải quyết triệt để các rào cản hành chính số tại Việt Nam mà không làm thay đổi hay can thiệp hệ thống máy chủ chính phủ.</p>
+            </div>
+            
+            <div class="bento-grid">
+                <!-- VAD Card -->
+                <div class="bento-card">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Thoại tiếng Việt rảnh tay</h3>
+                    <p class="card-description">Không cần bấm giữ. Hệ thống tự động nhận diện thời điểm người dùng bắt đầu nói và kết thúc nói để phản hồi lễ phép.</p>
+                </div>
+
+                <!-- DOM Annotation Card -->
+                <div class="bento-card bento-col-2">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">DOM Annotation API - Gán nhãn ngữ nghĩa</h3>
+                    <p class="card-description">EasyDVC tự động quét trang web, gán các mã thẻ nhãn ngữ nghĩa ẩn để AI Codex đọc trực tiếp cấu trúc HTML chính xác 100%. Không cần sử dụng các giải pháp Computer Vision tốn băng thông và có độ trễ lớn.</p>
+                </div>
+
+                <!-- PII Shield Card -->
+                <div class="bento-card bento-col-2">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Lá chắn Bảo mật PII Shield (Local Zero-State)</h3>
+                    <p class="card-description">Mọi số CCCD, Họ tên, Số điện thoại đều bị lọc, che giấu thành token bảo mật ngay tại thiết bị của người dùng. Dữ liệu thật chỉ được giải mã và điền ngược lại ô nhập liệu biểu mẫu khi có sự phê duyệt trực quan tại máy khách.</p>
+                </div>
+
+                <!-- AJAX Polling Cascading Dropdown Card -->
+                <div class="bento-card">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Đợi đồng bộ AJAX 3 cấp</h3>
+                    <p class="card-description">Cơ chế tự động hóa thăm dò vòng lặp (polling) 200ms giúp điền chuẩn xác luồng địa phương Tỉnh -> Huyện -> Xã bất chấp sự trễ tải dữ liệu bất đồng bộ.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Codex Security & Platform Architecture Section -->
+    <section class="section security-section" id="bao-mat">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">An toàn dữ liệu</span>
+                <h2 class="section-title">Kiến trúc bảo mật hai lớp Codex PII</h2>
+                <p class="section-description">Đảm bảo tuân thủ nghiêm ngặt Luật An ninh mạng Việt Nam. Không lưu trữ thông tin công dân trên máy chủ trung gian.</p>
+            </div>
+            
+            <div class="flow-container" aria-label="Sơ đồ luồng xử lý thông tin bảo mật">
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-badge">1</div>
+                        <h4 class="flow-step-title">Nhận dạng Cục bộ</h4>
+                        <p class="flow-step-desc">Regex tại trình duyệt phát hiện số CCCD/SĐT và che giấu thành khóa token.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">2</div>
+                        <h4 class="flow-step-title">Lọc PII Azure</h4>
+                        <p class="flow-step-desc">Cổng Azure Gateway lọc sạch dữ liệu thô một lần nữa trước khi chuyển tiếp.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">3</div>
+                        <h4 class="flow-step-title">Gửi suy luận AI</h4>
+                        <p class="flow-step-desc">API đám mây Codex chỉ nhận được token vô danh để lập luận ngữ cảnh biểu mẫu.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">4</div>
+                        <h4 class="flow-step-title">Giải mã Cục bộ</h4>
+                        <p class="flow-step-desc">Sau khi người dân bấm "Đồng ý", token mới được giải mã trên RAM client để điền.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Zalo OTP Integration Preview -->
+    <section class="section">
+        <div class="container">
+            <div class="phone-mockup-section">
+                <div>
+                    <span class="section-tag">Zalo OTP Sync Bridge</span>
+                    <h2 class="section-title" style="font-size: 32px; margin-bottom: 20px;">Đồng bộ mã OTP SMS qua Zalo Bot thông minh</h2>
+                    <p class="hero-description" style="font-size: 17px;">
+                        Người cao tuổi thường bối rối khi vừa nhìn máy tính vừa tìm điện thoại để đọc mã OTP. EasyDVC giải quyết bằng cách tích hợp <strong>Zalo Bot đồng hành</strong>.
+                    </p>
+                    <p class="hero-description" style="font-size: 17px;">
+                        Khi OTP từ Tổng đài DVC gửi đến số điện thoại, Zalo Bot tự động bắt mã và gửi WebSocket bảo mật về extension để tự động nhập vào biểu mẫu trực tiếp.
+                    </p>
+                    <button class="btn btn-primary btn-trigger-otp" onclick="triggerOTPSim()">
+                        Gửi OTP Giả Lập Thử
+                    </button>
+                </div>
+                
+                <!-- Phone Mockup Frame -->
+                <div class="phone-frame" aria-hidden="true">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <!-- Zalo Notification overlay -->
+                        <div class="notification" id="otp-notification">
+                            <div class="notif-header">
+                                <span>ZALO COMPANION</span>
+                                <span>vừa xong</span>
+                            </div>
+                            <div class="notif-title">EasyDVC Sync: Mã OTP DVC</div>
+                            <div class="notif-desc">Đã gửi mã <strong style="color:var(--color-cta)">983011</strong> tự động về tiện ích Chrome của bạn.</div>
+                        </div>
+
+                        <div class="zalo-header">
+                            <div class="zalo-avatar">DVC</div>
+                            <div class="zalo-name">Cổng DVC Quốc Gia</div>
+                        </div>
+                        <div class="sms-box">
+                            Mã xác thực OTP của ông/bà để hoàn thành hồ sơ dịch vụ công là <span class="sms-code">983011</span>. Vui lòng không chia sẻ mã này.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Guide Section -->
+    <section class="section" id="huong-dan">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Hướng dẫn cài đặt</span>
+                <h2 class="section-title">Chỉ mất vài bước để triển khai thử nghiệm</h2>
+                <p class="section-description">EasyDVC gồm 2 thành phần chính: Tiện ích Chrome Extension và Máy chủ Agent Backend trung gian.</p>
+            </div>
+            
+            <div style="max-width: 800px; margin: 0 auto; background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-soft);">
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 1: Tải mã nguồn & Đóng gói Chrome Extension</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Mở terminal trên máy tính và chạy các lệnh sau để tải dự án từ <a href="https://github.com/blu1606/DVC" style="color: var(--color-primary); font-weight: bold; text-decoration: underline;">GitHub Repository</a>:
+                </p>
+                <pre style="background: #0f172a; color: #f8fafc; padding: 12px 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; margin-bottom: 24px; border: none; text-align: left;">
+git clone https://github.com/blu1606/DVC.git
+cd DVC/extension
+pnpm install
+npx esbuild webrtc-client.js --bundle --outfile=webrtc-client.bundle.js</pre>
+
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 2: Nạp Extension vào Google Chrome</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Nạp extension đã giải nén vào trình duyệt Chrome của bạn:
+                </p>
+                <ol style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 24px; padding-left: 20px; line-height: 1.8;">
+                    <li>Mở Chrome và truy cập địa chỉ <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--color-primary);">chrome://extensions/</code></li>
+                    <li>Bật nút <strong>Chế độ nhà phát triển (Developer mode)</strong> ở góc trên bên phải.</li>
+                    <li>Chọn nút <strong>Tải tiện ích đã giải nén (Load unpacked)</strong> ở góc trái và chọn thư mục <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace;">DVC/extension</code>.</li>
+                </ol>
+
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 3: Khởi chạy Python Agent Server (Tùy chọn)</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Để chạy đầy đủ tính năng hội thoại âm thanh qua WebRTC/WebSocket:
+                </p>
+                <pre style="background: #0f172a; color: #f8fafc; padding: 12px 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; border: none; text-align: left;">
+cd ../backend
+python -m venv .venv
+# Trên Windows:
+.venv\Scripts\activate
+# Cài đặt thư viện & chạy server:
+pip install -r requirements.txt
+python agent_server.py</pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="section" id="faq">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Giải đáp thắc mắc</span>
+                <h2 class="section-title">Những câu hỏi thường gặp</h2>
+            </div>
+            
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Dự án EasyDVC có thu phí không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Không. EasyDVC là sản phẩm mã nguồn mở, được xây dựng phi lợi nhuận nhằm hỗ trợ tăng khả năng tiếp cận công nghệ cho người cao tuổi Việt Nam.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Dữ liệu cá nhân có bị đưa lên máy chủ AI không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Tuyệt đối không. Toàn bộ thông tin định danh như số CCCD, Họ tên, SĐT đều được lọc bỏ, che giấu dưới dạng các token vô danh ngay trên máy tính của bạn trước khi đưa ra ngoài để phân tích. Sau khi hoàn tất và được bạn cho phép thông qua hộp thoại Modal, extension mới khôi phục số liệu từ RAM để tự động nhập vào biểu mẫu.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Extension có nhận diện được giọng nói vùng miền không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Có. Nhờ việc tích hợp OpenAI Realtime API cùng mô hình nhận dạng giọng nói nâng cao của hệ sinh thái Codex, trợ lý giọng nói EasyDVC nhận diện cực kỳ tốt giọng nói tiếng Việt ở cả 3 miền Bắc, Trung, Nam với văn phong trò chuyện tự nhiên hàng ngày.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call To Action Block -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-block">
+                <h2 class="cta-title">Mang công nghệ số đến gần hơn với cha mẹ</h2>
+                <p class="cta-desc">Giúp người cao tuổi trong gia đình tự tin làm thủ tục trực tuyến rảnh tay, không ngại rào cản thao tác.</p>
+                <div class="cta-buttons">
+                    <a href="https://github.com/blu1606/DVC" class="btn btn-primary" style="background-color: white; color: var(--color-primary);">
+                        Tải Extension Miễn Phí
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-wrapper">
+            <a href="#" class="footer-logo">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+                <span>EasyDVC</span>
+            </a>
+            
+            <p>&copy; 2026 EasyDVC. Mã nguồn mở phục vụ cộng đồng.</p>
+            
+            <ul class="footer-links">
+                <li><a href="https://github.com/blu1606/DVC">GitHub</a></li>
+                <li><a href="#bao-mat">Bảo mật</a></li>
+            </ul>
+        </div>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
