@@ -63687,11 +63687,24 @@ ${str(snapshot)}`);
     }
   });
   async function initializeVoiceAssistant(onEvent) {
-    const tokenResponse = await fetch("http://localhost:8000/token");
-    if (!tokenResponse.ok) {
-      throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token: ${tokenResponse.status}`);
+    let tokenData;
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+          resolve(res || { status: "error", message: "No response from background script" });
+        });
+      });
+      if (response.status === "error") {
+        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${response.message}`);
+      }
+      tokenData = response.data;
+    } else {
+      const tokenResponse = await fetch("http://localhost:8000/token");
+      if (!tokenResponse.ok) {
+        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token tr\u1EF1c ti\u1EBFp: ${tokenResponse.status}`);
+      }
+      tokenData = await tokenResponse.json();
     }
-    const tokenData = await tokenResponse.json();
     const ephemeralKey = tokenData.value || tokenData.client_secret && tokenData.client_secret.value;
     const agent = new RealtimeAgent({
       name: "Th\xF4ngDVC Assistant",

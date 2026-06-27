@@ -204,11 +204,25 @@ const scrollPageTool = tool({
  * @returns {Promise<RealtimeSession>} Session đã kết nối, sẵn sàng giao tiếp.
  */
 export async function initializeVoiceAssistant(onEvent) {
-  const tokenResponse = await fetch("http://localhost:8000/token");
-  if (!tokenResponse.ok) {
-    throw new Error(`Không thể lấy token: ${tokenResponse.status}`);
+  let tokenData;
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+        resolve(res || { status: "error", message: "No response from background script" });
+      });
+    });
+    if (response.status === "error") {
+      throw new Error(`Không thể lấy token qua background: ${response.message}`);
+    }
+    tokenData = response.data;
+  } else {
+    // Fallback nếu chạy bên ngoài môi trường Extension (ví dụ test offline)
+    const tokenResponse = await fetch("http://localhost:8000/token");
+    if (!tokenResponse.ok) {
+      throw new Error(`Không thể lấy token trực tiếp: ${tokenResponse.status}`);
+    }
+    tokenData = await tokenResponse.json();
   }
-  const tokenData    = await tokenResponse.json();
   const ephemeralKey = tokenData.value || (tokenData.client_secret && tokenData.client_secret.value);  // dạng "ek_..."
 
   // Tạo RealtimeAgent với các tools đã định nghĩa
