@@ -189,27 +189,42 @@ async function handleCommand(command) {
 // ─────────────────────────────────────────────────────────────────────────────
 function injectShadowUI({ html, mount, mode }) {
   let host = document.getElementById(mount);
+  const assistantPanel = mount === "accessibility-assistant-panel"
+    ? document.getElementById("thongdvc-panel")
+    : null;
+
   if (!host) {
     host = document.createElement("div");
     host.id = mount;
-    document.body.appendChild(host);
   }
-  const isChecklist = mount === "accessibility-assistant-panel";
-  Object.assign(host.style, {
-    position: "fixed",
-    top: isChecklist ? "16px" : "",
-    right: "16px",
-    bottom: isChecklist ? "" : "20px",
-    zIndex: "2147483646",
-    maxWidth: isChecklist ? "360px" : "",
-  });
+
+  if (assistantPanel) {
+    if (host.parentElement !== document.body) {
+      document.body.appendChild(host);
+    }
+    host.removeAttribute("data-dismissed");
+    setupAssistantCompanionPanel(host, assistantPanel);
+  } else {
+    if (!host.parentElement) {
+      document.body.appendChild(host);
+    }
+    const isChecklist = mount === "accessibility-assistant-panel";
+    Object.assign(host.style, {
+      position: "fixed",
+      top: isChecklist ? "16px" : "",
+      right: "16px",
+      bottom: isChecklist ? "" : "20px",
+      zIndex: "2147483646",
+      maxWidth: isChecklist ? "360px" : "",
+    });
+  }
 
   let container = host;
   if (mode === "shadow-root") {
     container = host.shadowRoot || host.attachShadow({ mode: "open" });
   }
 
-  container.innerHTML = sanitizeHTML(html);
+  container.innerHTML = sanitizeHTML(normalizeAssistantPanelHTML(html, mount));
   if (mount === "accessibility-assistant-panel") {
     setupChecklistControls(host, container);
   }
@@ -218,13 +233,138 @@ function injectShadowUI({ html, mount, mode }) {
 
 function setupChecklistControls(host, container) {
   const toggleBtn = container.getElementById?.("toggle-checklist") || container.querySelector?.("#toggle-checklist");
-  const closeBtn = container.getElementById?.("close-checklist") || container.querySelector?.("#close-checklist");
+  const closeBtn = container.getElementById?.("close-checklist") || container.querySelector?.("#close-checklist, [data-easydvc-close]");
   toggleBtn?.addEventListener("click", () => {
     const collapsed = host.getAttribute("data-collapsed") === "true";
     host.setAttribute("data-collapsed", collapsed ? "false" : "true");
     toggleBtn.textContent = collapsed ? "-" : "+";
   });
-  closeBtn?.addEventListener("click", () => host.remove());
+  closeBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    host.setAttribute("data-dismissed", "true");
+    host.style.display = "none";
+  });
+}
+
+function normalizeAssistantPanelHTML(html, mount) {
+  if (mount !== "accessibility-assistant-panel") {
+    return html;
+  }
+  if (String(html || "").includes('data-easydvc-checklist="true"')) {
+    return html;
+  }
+  return buildChecklistHTML(extractChecklistSteps(html));
+}
+
+function extractChecklistSteps(html) {
+  const fallbackSteps = [
+    { label: "Xác định thủ tục cần làm", done: false },
+    { label: "Điền thông tin theo hướng dẫn", done: false },
+    { label: "Kiểm tra lại thông tin", done: false },
+    { label: "Nộp hồ sơ khi đã sẵn sàng", done: false }
+  ];
+
+  try {
+    const doc = new DOMParser().parseFromString(sanitizeHTML(String(html || "")), "text/html");
+    const listItems = Array.from(doc.querySelectorAll("li"));
+    const itemSteps = listItems
+      .map((item) => ({
+        label: cleanChecklistText(item.textContent),
+        done: item.classList.contains("done") || /[✓✔✅]/.test(item.textContent || "")
+      }))
+      .filter(({ label }) => label.length > 0);
+
+    if (itemSteps.length > 0) {
+      return itemSteps.slice(0, 8);
+    }
+
+    const textSteps = (doc.body?.textContent || "")
+      .split(/\n|(?=\s*\d+[\).\-\s]+)/)
+      .map(cleanChecklistText)
+      .filter((line) => line && !/checklist|các bước|hướng dẫn|lưu ý/i.test(line))
+      .slice(0, 8)
+      .map((label) => ({ label, done: false }));
+
+    return textSteps.length > 0 ? textSteps : fallbackSteps;
+  } catch (error) {
+    return fallbackSteps;
+  }
+}
+
+function cleanChecklistText(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[✓✔✅☑☐□⬜\s-]+/, "")
+    .replace(/^\s*\d+[\).\-\s]+/, "")
+    .trim();
+}
+
+function setupAssistantCompanionPanel(host, assistantPanel) {
+  const sync = () => {
+    positionAssistantCompanionPanel(host, assistantPanel);
+    const shouldShow = assistantPanel.classList.contains("show") && host.getAttribute("data-dismissed") !== "true";
+    host.style.display = shouldShow ? "block" : "none";
+  };
+
+  sync();
+
+  if (!host.__thongdvcChecklistObserver) {
+    host.__thongdvcChecklistObserver = new MutationObserver(sync);
+    host.__thongdvcChecklistObserver.observe(assistantPanel, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
+
+  if (!host.__thongdvcResizeHandler) {
+    host.__thongdvcResizeHandler = sync;
+    window.addEventListener("resize", host.__thongdvcResizeHandler);
+  }
+}
+
+function positionAssistantCompanionPanel(host, assistantPanel) {
+  const rect = assistantPanel.getBoundingClientRect();
+  const margin = 12;
+  const gap = 12;
+  const verticalOffset = 78;
+  const leftSpace = rect.left - margin - gap;
+  const canDockLeft = leftSpace >= 260 && window.innerWidth >= 760;
+
+  if (canDockLeft) {
+    const width = Math.min(330, leftSpace);
+    const top = Math.min(
+      Math.max(margin, rect.top + verticalOffset),
+      Math.max(margin, window.innerHeight - 220)
+    );
+    const maxHeight = Math.max(160, Math.min(rect.bottom - top, window.innerHeight - top - margin));
+    Object.assign(host.style, {
+      position: "fixed",
+      top: `${top}px`,
+      left: `${Math.max(margin, rect.left - width - gap)}px`,
+      right: "auto",
+      bottom: "auto",
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+      zIndex: "2147483643",
+      boxSizing: "border-box",
+      pointerEvents: "auto",
+    });
+    return;
+  }
+
+  Object.assign(host.style, {
+    position: "fixed",
+    top: `${Math.max(margin, rect.top + verticalOffset)}px`,
+    left: `${margin}px`,
+    right: `${margin}px`,
+    bottom: "auto",
+    width: "auto",
+    maxHeight: "180px",
+    zIndex: "2147483646",
+    boxSizing: "border-box",
+    pointerEvents: "auto",
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -994,16 +1134,18 @@ function checkLoginStatus() {
 }
 
 function buildChecklistHTML(steps) {
+  const doneCount = steps.filter(({ done, status }) => done || status === "done").length;
+  const totalCount = steps.length;
   const stepItems = steps
     .map(
-      ({ label, done, status, reason }) => {
+      ({ label, done, status, reason }, index) => {
         const stepStatus = status || (done ? "done" : "todo");
-        const icon = stepStatus === "done" ? "✓" : stepStatus === "current" ? "→" : stepStatus === "blocked" ? "!" : "□";
+        const icon = stepStatus === "done" ? "✓" : stepStatus === "current" ? "→" : stepStatus === "blocked" ? "!" : index + 1;
         const reasonHtml = reason ? `<span class="reason">${escapeHtml(reason)}</span>` : "";
         return `
       <li class="step ${escapeHtml(stepStatus)}">
-        <span class="icon">${icon}</span>
-        <span class="label">${escapeHtml(label)}</span>
+        <span class="icon">${escapeHtml(String(icon))}</span>
+        <span class="label">${escapeHtml(normalizeChecklistLabel(label))}</span>
         ${reasonHtml}
       </li>`;
       }
@@ -1014,34 +1156,46 @@ function buildChecklistHTML(steps) {
     <style>
       :host {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 16px;
+        display: block;
+        color: #f8fafc;
       }
       :host([data-collapsed="true"]) .body { display: none; }
       :host([data-collapsed="true"]) .panel { min-width: 0; width: auto; }
       .panel {
-        background: #1e293b;
+        background: #0f172a;
         color: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-left: 3px solid #60a5fa;
         border-radius: 10px;
-        min-width: 300px;
-        max-width: min(360px, calc(100vw - 32px));
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
         overflow: hidden;
-        border: 1px solid rgba(148, 163, 184, 0.25);
+        max-height: inherit;
       }
       .header {
-        display: flex;
+        min-height: 42px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 12px 14px;
+        gap: 8px;
+        padding: 9px 12px;
         background: rgba(15, 23, 42, 0.55);
       }
-      h3 {
+      .title {
         margin: 0;
         font-size: 14px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        line-height: 1.35;
+        font-weight: 700;
+        color: #e2e8f0;
+      }
+      .meta {
+        flex: 0 0 auto;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.18);
+        color: #bfdbfe;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
       }
       .controls {
         display: flex;
@@ -1059,7 +1213,15 @@ function buildChecklistHTML(steps) {
         line-height: 1;
       }
       button:hover { background: rgba(51, 65, 85, 0.95); }
-      .body { padding: 8px 18px 14px; }
+      #close-checklist:hover {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+      .body {
+        padding: 0 12px 8px;
+        max-height: min(340px, calc(100vh - 190px));
+        overflow-y: auto;
+      }
       ul {
         list-style: none;
         padding: 0;
@@ -1067,28 +1229,26 @@ function buildChecklistHTML(steps) {
       }
       .step {
         display: grid;
-        grid-template-columns: 22px 1fr;
-        gap: 10px;
+        grid-template-columns: 24px 1fr;
+        gap: 8px;
         padding: 8px 0;
-        border-bottom: 1px solid #334155;
-        font-size: 15px;
-        line-height: 1.4;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+        font-size: 14px;
+        line-height: 1.35;
       }
-      .step:last-child { border-bottom: none; }
-      .step.done .label { color: #64748b; text-decoration: line-through; }
+      .step.done .label { color: #94a3b8; text-decoration: line-through; }
       .step.current {
         margin: 6px -8px;
         padding: 10px 8px;
         border-radius: 8px;
         background: rgba(16, 185, 129, 0.14);
-        border-bottom-color: transparent;
       }
       .step.current .label { color: #f8fafc; font-weight: 700; }
       .step.blocked .label { color: #fde68a; }
       .icon {
         width: 22px;
         height: 22px;
-        border-radius: 6px;
+        border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1107,10 +1267,16 @@ function buildChecklistHTML(steps) {
         line-height: 1.35;
         margin-top: -4px;
       }
+      @media (max-width: 480px) {
+        .title { font-size: 13.5px; }
+        .body { max-height: 124px; }
+        .step { font-size: 13px; }
+      }
     </style>
-    <div class="panel">
+    <div class="panel" data-easydvc-checklist="true">
       <div class="header">
-        <h3>📋 Hướng dẫn</h3>
+        <h3 class="title">Các bước cần làm</h3>
+        <span class="meta">${doneCount}/${totalCount || 0} xong</span>
         <div class="controls">
           <button id="toggle-checklist" type="button" title="Thu gọn/mở rộng">−</button>
           <button id="close-checklist" type="button" title="Đóng">×</button>
@@ -1119,6 +1285,10 @@ function buildChecklistHTML(steps) {
       <div class="body"><ul>${stepItems}</ul></div>
     </div>
   `;
+}
+
+function normalizeChecklistLabel(label) {
+  return String(label || "").replace(/^\s*\d+[\).\-\s]+/, "").trim();
 }
 
 function escapeHtml(str) {

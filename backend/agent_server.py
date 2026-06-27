@@ -108,9 +108,14 @@ async def inject_custom_ui(html_content: str) -> dict:
         "position": "bottom-right",
     }
     result = await bridge.execute_action("inject_html", payload)
+    if result.get("status") != "success":
+        return {
+            "status": "error",
+            "message": result.get("message", "Không hiển thị được checklist trên trang."),
+        }
     return {
         "ui_id": result.get("ui_id"),
-        "status": "mounted",
+        "status": "success",
         "message": "Checklist UI successfully injected.",
     }
 

@@ -63415,15 +63415,17 @@ ${str(snapshot)}`);
 
   // ui-builder.js
   function buildChecklistHTML(steps) {
+    const doneCount = steps.filter(({ done, status }) => done || status === "done").length;
+    const totalCount = steps.length;
     const stepItems = steps.map(
-      ({ label, done, status, reason }) => {
+      ({ label, done, status, reason }, index) => {
         const stepStatus = status || (done ? "done" : "todo");
-        const icon = stepStatus === "done" ? "\u2713" : stepStatus === "current" ? "\u2192" : stepStatus === "blocked" ? "!" : "\u25A1";
+        const icon = stepStatus === "done" ? "\u2713" : stepStatus === "current" ? "\u2192" : stepStatus === "blocked" ? "!" : index + 1;
         const reasonHtml = reason ? `<span class="reason">${escapeHtml(reason)}</span>` : "";
         return `
       <li class="step ${escapeHtml(stepStatus)}">
-        <span class="icon">${icon}</span>
-        <span class="label">${escapeHtml(label)}</span>
+        <span class="icon">${escapeHtml(String(icon))}</span>
+        <span class="label">${escapeHtml(normalizeChecklistLabel(label))}</span>
         ${reasonHtml}
       </li>`;
       }
@@ -63432,22 +63434,71 @@ ${str(snapshot)}`);
     <style>
       :host {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 16px;
-      }
-      .panel {
-        background: #1e293b;
+        display: block;
         color: #f8fafc;
-        border-radius: 12px;
-        padding: 16px 20px;
-        min-width: 260px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       }
-      h3 {
-        margin: 0 0 12px;
+      :host([data-collapsed="true"]) .body { display: none; }
+      :host([data-collapsed="true"]) .panel { min-width: 0; width: auto; }
+      .panel {
+        background: #0f172a;
+        color: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-left: 3px solid #60a5fa;
+        border-radius: 10px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
+        overflow: hidden;
+        max-height: inherit;
+      }
+      .header {
+        min-height: 42px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        background: rgba(15, 23, 42, 0.55);
+      }
+      .title {
+        margin: 0;
         font-size: 14px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        line-height: 1.35;
+        font-weight: 700;
+        color: #e2e8f0;
+      }
+      .meta {
+        flex: 0 0 auto;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.18);
+        color: #bfdbfe;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .controls {
+        display: flex;
+        gap: 6px;
+      }
+      button {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.75);
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+      }
+      button:hover { background: rgba(51, 65, 85, 0.95); }
+      #close-checklist:hover {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+      .body {
+        padding: 0 12px 8px;
+        max-height: min(340px, calc(100vh - 190px));
+        overflow-y: auto;
       }
       ul {
         list-style: none;
@@ -63456,28 +63507,26 @@ ${str(snapshot)}`);
       }
       .step {
         display: grid;
-        grid-template-columns: 22px 1fr;
-        gap: 10px;
+        grid-template-columns: 24px 1fr;
+        gap: 8px;
         padding: 8px 0;
-        border-bottom: 1px solid #334155;
-        font-size: 15px;
-        line-height: 1.4;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+        font-size: 14px;
+        line-height: 1.35;
       }
-      .step:last-child { border-bottom: none; }
-      .step.done .label { color: #64748b; text-decoration: line-through; }
+      .step.done .label { color: #94a3b8; text-decoration: line-through; }
       .step.current {
         margin: 6px -8px;
         padding: 10px 8px;
         border-radius: 8px;
         background: rgba(16, 185, 129, 0.14);
-        border-bottom-color: transparent;
       }
       .step.current .label { color: #f8fafc; font-weight: 700; }
       .step.blocked .label { color: #fde68a; }
       .icon {
         width: 22px;
         height: 22px;
-        border-radius: 6px;
+        border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -63496,12 +63545,27 @@ ${str(snapshot)}`);
         line-height: 1.35;
         margin-top: -4px;
       }
+      @media (max-width: 480px) {
+        .title { font-size: 13.5px; }
+        .body { max-height: 124px; }
+        .step { font-size: 13px; }
+      }
     </style>
-    <div class="panel">
-      <h3>\u{1F4CB} H\u01B0\u1EDBng d\u1EABn \u0111i\u1EC1n form</h3>
-      <ul>${stepItems}</ul>
+    <div class="panel" data-easydvc-checklist="true">
+      <div class="header">
+        <h3 class="title">C\xE1c b\u01B0\u1EDBc c\u1EA7n l\xE0m</h3>
+        <span class="meta">${doneCount}/${totalCount || 0} xong</span>
+        <div class="controls">
+          <button id="toggle-checklist" type="button" title="Thu g\u1ECDn/m\u1EDF r\u1ED9ng">\u2212</button>
+          <button id="close-checklist" type="button" title="\u0110\xF3ng">\xD7</button>
+        </div>
+      </div>
+      <div class="body"><ul>${stepItems}</ul></div>
     </div>
   `;
+  }
+  function normalizeChecklistLabel(label) {
+    return String(label || "").replace(/^\s*\d+[\).\-\s]+/, "").trim();
   }
   function escapeHtml(str2) {
     return String(str2 || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
