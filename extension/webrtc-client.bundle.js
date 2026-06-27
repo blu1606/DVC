@@ -63704,24 +63704,55 @@ ${str(snapshot)}`);
       return await sendCommandToActiveTab("scroll", { direction });
     }
   });
-  async function initializeVoiceAssistant(onEvent) {
-    let tokenData;
-    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-      const response = await new Promise((resolve) => {
+  async function fetchRealtimeTokenDirect() {
+    const tokenResponse = await fetch("http://localhost:8000/token");
+    if (!tokenResponse.ok) {
+      throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token tr\u1EF1c ti\u1EBFp: ${tokenResponse.status}`);
+    }
+    return await tokenResponse.json();
+  }
+  async function fetchRealtimeTokenFromBackground() {
+    return await new Promise((resolve) => {
+      try {
         chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+          const runtimeError = chrome.runtime.lastError;
+          if (runtimeError) {
+            resolve({ status: "error", message: runtimeError.message });
+            return;
+          }
           resolve(res || { status: "error", message: "No response from background script" });
         });
-      });
+      } catch (error) {
+        resolve({ status: "error", message: error.message });
+      }
+    });
+  }
+  function isInvalidatedExtensionContext(message) {
+    return String(message || "").toLowerCase().includes("extension context invalidated");
+  }
+  async function initializeVoiceAssistant(onEvent) {
+    let tokenData;
+    let backgroundError = "";
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      const response = await fetchRealtimeTokenFromBackground();
       if (response.status === "error") {
-        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${response.message}`);
+        backgroundError = response.message || "Unknown background error";
+      } else {
+        tokenData = response.data;
       }
-      tokenData = response.data;
-    } else {
-      const tokenResponse = await fetch("http://localhost:8000/token");
-      if (!tokenResponse.ok) {
-        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token tr\u1EF1c ti\u1EBFp: ${tokenResponse.status}`);
+    }
+    if (!tokenData) {
+      try {
+        tokenData = await fetchRealtimeTokenDirect();
+      } catch (error) {
+        if (isInvalidatedExtensionContext(backgroundError)) {
+          throw new Error("Extension v\u1EEBa \u0111\u01B0\u1EE3c reload. B\xE1c h\xE3y refresh l\u1EA1i trang r\u1ED3i b\u1EA5m B\u1EAFt \u0111\u1EA7u n\xF3i l\u1EA1i.");
+        }
+        if (backgroundError) {
+          throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${backgroundError}; tr\u1EF1c ti\u1EBFp: ${error.message}`);
+        }
+        throw error;
       }
-      tokenData = await tokenResponse.json();
     }
     const ephemeralKey = tokenData.value || tokenData.client_secret && tokenData.client_secret.value;
     const agent = new RealtimeAgent({
