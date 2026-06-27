@@ -4,7 +4,7 @@
  */
 
 (function () {
-  if (typeof window === "undefined" || document.getElementById("thongdvc-widget-container")) {
+  if (typeof window === "undefined" || window !== window.top || document.getElementById("thongdvc-widget-container")) {
     return;
   }
 

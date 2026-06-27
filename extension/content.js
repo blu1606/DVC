@@ -23,40 +23,93 @@ const FIELD_MAPPINGS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KẾT NỐI WEBSOCKET ĐẾN BRIDGE SERVER
+// KẾT NỐI WEBSOCKET ĐẾN BRIDGE SERVER & THIẾT LẬP GIAO TIẾP FRAME
 // ─────────────────────────────────────────────────────────────────────────────
-const socket = new WebSocket("ws://localhost:8000");
+const childCommandResolvers = new Map();
 
-socket.addEventListener("open", () => {
-  console.log("[ThôngDVC] Extension đã kết nối với Bridge Server.");
-});
+if (window === window.top) {
+  const socket = new WebSocket("ws://localhost:8000");
 
-socket.addEventListener("message", async (event) => {
-  let command;
-  try {
-    command = JSON.parse(event.data);
-  } catch (e) {
-    console.error("[ThôngDVC] JSON không hợp lệ:", event.data);
-    return;
+  socket.addEventListener("open", () => {
+    console.log("[ThôngDVC] Trang cha đã kết nối với Bridge Server.");
+  });
+
+  socket.addEventListener("message", async (event) => {
+    let command;
+    try {
+      command = JSON.parse(event.data);
+    } catch (e) {
+      console.error("[ThôngDVC] JSON không hợp lệ:", event.data);
+      return;
+    }
+
+    const result = await handleCommand(command);
+    socket.send(JSON.stringify(result));
+  });
+
+  socket.addEventListener("close", () => {
+    console.warn("[ThôngDVC] Mất kết nối với Bridge Server.");
+  });
+
+  // Lắng nghe lệnh trực tiếp từ Extension Popup (cho WebRTC client-side)
+  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      handleCommand(message).then(response => {
+        sendResponse(response);
+      }).catch(err => {
+        sendResponse({ status: "error", message: err.message });
+      });
+      return true; // Giữ kết nối sendResponse không bị ngắt vì xử lý async
+    });
   }
 
-  const result = await handleCommand(command);
-  socket.send(JSON.stringify(result));
-});
+  // Lắng nghe các thông điệp từ iframe con
+  window.addEventListener("message", async (event) => {
+    const msg = event.data;
+    if (!msg) return;
 
-socket.addEventListener("close", () => {
-  console.warn("[ThôngDVC] Mất kết nối với Bridge Server.");
-});
+    if (msg.type === "THONGDVC_RESPONSE_COMMAND") {
+      const resolver = childCommandResolvers.get(msg.commandId);
+      if (resolver) {
+        resolver(msg.result);
+        childCommandResolvers.delete(msg.commandId);
+      }
+    }
 
-// Lắng nghe lệnh trực tiếp từ Extension Popup (cho WebRTC client-side)
-if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    handleCommand(message).then(response => {
-      sendResponse(response);
-    }).catch(err => {
-      sendResponse({ status: "error", message: err.message });
-    });
-    return true; // Giữ kết nối sendResponse không bị ngắt vì xử lý async
+    if (msg.type === "THONGDVC_FORWARD_INJECT") {
+      const res = injectShadowUI({ html: msg.command.html, mount: msg.command.mount, mode: msg.command.mode });
+      event.source.postMessage({ type: "THONGDVC_RESPONSE_COMMAND", commandId: msg.commandId, result: res }, "*");
+    }
+
+    if (msg.type === "THONGDVC_FORWARD_PII") {
+      const res = await showPIIConfirmModal(msg.command.masked_text, msg.command.raw_text, msg.command.tokens);
+      event.source.postMessage({ type: "THONGDVC_RESPONSE_COMMAND", commandId: msg.cmdId, result: { status: "success", confirmed: res } }, "*");
+    }
+  });
+
+} else {
+  // Chạy trong iframe con: Lắng nghe yêu cầu từ parent frame
+  window.addEventListener("message", async (event) => {
+    const msg = event.data;
+    if (!msg) return;
+
+    if (msg.type === "THONGDVC_REQUEST_DOM") {
+      const localDOM = getLocalPageDOMStructure();
+      event.source.postMessage({
+        type: "THONGDVC_RESPONSE_DOM",
+        frameSelector: msg.frameSelector,
+        page: localDOM.page
+      }, "*");
+    }
+
+    if (msg.type === "THONGDVC_EXECUTE_COMMAND") {
+      const result = await handleCommand(msg.command);
+      event.source.postMessage({
+        type: "THONGDVC_RESPONSE_COMMAND",
+        commandId: msg.commandId,
+        result: result
+      }, "*");
+    }
   });
 }
 
@@ -67,17 +120,21 @@ async function handleCommand(command) {
   console.log("[ThôngDVC] Nhận lệnh:", command);
   const { action, field_name, text, value, html, mount, mode } = command;
 
-  // Lệnh tiêm Shadow DOM UI (Phase 05)
+  // Lệnh tiêm Shadow DOM UI (Phase 05) - chỉ chạy ở top-level frame để tránh trùng lặp
   if (action === "inject_html") {
+    if (window !== window.top) {
+      const cmdId = Math.random().toString(36).substring(2);
+      window.parent.postMessage({ type: "THONGDVC_FORWARD_INJECT", commandId: cmdId, command }, "*");
+      return { status: "success", message: "Đã chuyển tiếp lệnh inject lên trang cha" };
+    }
     console.log("[ThôngDVC] Thực hiện inject HTML vào shadow DOM");
     return injectShadowUI({ html, mount, mode });
   }
 
   // Lệnh đọc cấu trúc DOM hiện tại
   if (action === "read_dom") {
-    console.log("[ThôngDVC] Thực hiện đọc cấu trúc DOM");
     try {
-      return getPageDOMStructure();
+      return await getPageDOMStructure();
     } catch (err) {
       return { status: "error", message: err.message };
     }
@@ -99,18 +156,81 @@ async function handleCommand(command) {
     }
   }
 
-  // Xác định selector: ưu tiên selector động được gửi từ Agent, sau đó tra cứu mapping cố định
+  // Đi xác thực PII
+  if (action === "show_pii_confirm") {
+    try {
+      if (window !== window.top) {
+        return new Promise((resolve) => {
+          const cmdId = Math.random().toString(36).substring(2);
+          childCommandResolvers.set(cmdId, (res) => resolve(res));
+          window.parent.postMessage({ type: "THONGDVC_FORWARD_PII", cmdId, command }, "*");
+        });
+      }
+      const { masked_text, raw_text, tokens } = command;
+      const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens);
+      return { status: "success", confirmed: confirmed };
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  // Xác định selector: ưu tiên selector động
   let selector = command.selector;
   if (!selector && field_name) {
     selector = FIELD_MAPPINGS[field_name];
   }
 
+  // Phân tích nếu selector là iframe lồng nhau (có ký hiệu " -> ")
+  if (selector && selector.includes(" -> ")) {
+    const parts = selector.split(" -> ");
+    const frameSelector = parts[0];
+    const remainingSelector = parts.slice(1).join(" -> ");
+
+    console.log(`[ThôngDVC] Chuyển hướng lệnh điều khiển xuống iframe: ${frameSelector}`);
+    const iframe = document.querySelector(frameSelector);
+    if (iframe) {
+      const commandId = Math.random().toString(36).substring(2);
+      iframe.contentWindow.postMessage({
+        type: "THONGDVC_EXECUTE_COMMAND",
+        commandId: commandId,
+        command: {
+          ...command,
+          selector: remainingSelector
+        }
+      }, "*");
+
+      return await waitForChildCommandResult(commandId);
+    } else {
+      return { status: "error", message: `Không tìm thấy iframe ở đường dẫn: ${frameSelector}` };
+    }
+  }
+
+  // Điền địa chỉ 3 cấp (chỉ thực hiện ở main frame hoặc nội bộ iframe)
+  if (action === "fill_address_cascade") {
+    try {
+      const { province, district, ward } = command;
+      return await fillAddressCascading({ province, district, ward });
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  // Điền hàng loạt profile
+  if (action === "bulk_fill_profile") {
+    try {
+      const { profile } = command;
+      return await bulkFillProfile(profile);
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  // XỬ LÝ CỤC BỘ TRÊN CHÍNH FRAME NÀY (khi selector không chứa " -> ")
   let element = null;
   if (selector) {
     element = document.querySelector(selector);
   }
 
-  // Fallback: Tìm theo ID hoặc name trùng với field_name nếu không tìm thấy bằng selector
   if (!element && field_name) {
     element = document.getElementById(field_name) || document.querySelector(`[name="${field_name}"]`);
   }
@@ -175,10 +295,9 @@ async function handleCommand(command) {
           }
         }
 
-        // Fallback: Chuyển hướng theo domain hiện tại
         const origin = window.location.origin;
         window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
-        return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
+        return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập..." };
       } catch (err) {
         return { status: "error", message: err.message };
       }
@@ -192,34 +311,6 @@ async function handleCommand(command) {
           html: html,
           mode: "shadow-root"
         });
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "show_pii_confirm") {
-      try {
-        const { masked_text, raw_text, tokens } = command;
-        const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens);
-        return { status: "success", confirmed: confirmed };
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "fill_address_cascade") {
-      try {
-        const { province, district, ward } = command;
-        return await fillAddressCascading({ province, district, ward });
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "bulk_fill_profile") {
-      try {
-        const { profile } = command;
-        return await bulkFillProfile(profile);
       } catch (err) {
         return { status: "error", message: err.message };
       }
@@ -324,24 +415,91 @@ const DVC_FORM_TEMPLATES = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DYNAMIC DOM SCRAPER FOR AGENT ACCESSIBILITY SNAPSHOTS
+// DYNAMIC DOM SCRAPER & IFRAME AGGREGATION
 // ─────────────────────────────────────────────────────────────────────────────
-function getPageDOMStructure() {
+
+// Tìm nhãn văn bản liên kết với ô nhập liệu bằng thuật toán duyệt ngữ cảnh thông minh
+function findLabelForElement(el) {
+  let labelText = "";
+  const id = el.id;
+
+  // 1. Thẻ <label> liên kết qua for
+  if (id) {
+    const labelEl = document.querySelector(`label[for="${id}"]`);
+    if (labelEl) {
+      labelText = labelEl.innerText || labelEl.textContent || "";
+    }
+  }
+
+  // 2. Thẻ <label> bọc ngoài phần tử
+  if (!labelText) {
+    const parentLabel = el.closest("label");
+    if (parentLabel) {
+      labelText = parentLabel.innerText || parentLabel.textContent || "";
+    }
+  }
+
+  // 3. Sử dụng các thuộc tính có sẵn
+  if (!labelText) {
+    labelText = el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.getAttribute("title") || "";
+  }
+
+  // 4. Định dạng bảng (TableCell TD) - Tìm ở ô TD nằm ngay trước (thường chứa nhãn ở cột trái)
+  if (!labelText) {
+    const td = el.closest("td");
+    if (td && td.previousElementSibling) {
+      labelText = td.previousElementSibling.innerText || td.previousElementSibling.textContent || "";
+    }
+  }
+
+  // 5. Tìm phần tử văn bản (span, div, label) đứng trước cùng cấp
+  if (!labelText) {
+    let sibling = el.previousElementSibling;
+    while (sibling) {
+      const text = (sibling.innerText || sibling.textContent || "").trim();
+      if (text) {
+        labelText = text;
+        break;
+      }
+      sibling = sibling.previousElementSibling;
+    }
+  }
+
+  // 6. Tìm Text Node đứng trước
+  if (!labelText) {
+    let sibling = el.previousSibling;
+    while (sibling) {
+      if (sibling.nodeType === Node.TEXT_NODE && sibling.textContent.trim()) {
+        labelText = sibling.textContent.trim();
+        break;
+      }
+      sibling = sibling.previousSibling;
+    }
+  }
+
+  // 7. Dự phòng từ name hoặc class
+  if (!labelText && el.getAttribute("name")) {
+    labelText = el.getAttribute("name");
+  }
+
+  return labelText.trim().replace(/\s+/g, " ").replace(/[:*]\s*$/, "").slice(0, 100);
+}
+
+// Lấy cấu trúc DOM của chính tài liệu hiện tại (Main page hoặc Iframe)
+function getLocalPageDOMStructure() {
   const title = document.title;
   const url = window.location.href;
 
   const matchedRoute = Object.keys(DVC_FORM_TEMPLATES).find(route => url.includes(route));
 
   if (matchedRoute) {
-    console.log("[ThôngDVC] Khớp mẫu template DVC. Đọc giá trị hiện tại của form và trả về cache.");
+    console.log("[ThôngDVC] Khớp mẫu template DVC. Đọc giá trị hiện tại của form.");
     const template = JSON.parse(JSON.stringify(DVC_FORM_TEMPLATES[matchedRoute]));
     
-    // Đọc động các giá trị thực tế đang có trên form để LLM đồng bộ
     template.formFields.forEach(field => {
       const el = document.querySelector(field.selector);
       if (el) {
         field.value = el.value || "";
-        // Nếu là select, load thêm option đã chọn
         if (field.tag === "select" && el.options) {
           field.options = Array.from(el.options).map(opt => ({
             text: opt.text.trim(),
@@ -363,7 +521,6 @@ function getPageDOMStructure() {
     };
   }
 
-  // Thu thập các thẻ Heading để biết ngữ cảnh trang
   const headings = Array.from(document.querySelectorAll("h1, h2, h3, h4"))
     .map(el => ({
       tag: el.tagName.toLowerCase(),
@@ -373,19 +530,16 @@ function getPageDOMStructure() {
     .filter(h => h.text.length > 0)
     .slice(0, 10);
 
-  // Lấy các phần tử tương tác
   const elements = Array.from(document.querySelectorAll("input, select, textarea, button, a.btn, [role='button']"));
   
   const formFields = [];
   const buttons = [];
 
   elements.forEach(el => {
-    // Bỏ qua các phần tử ẩn hoặc không hiển thị
     if (el.type === "hidden" || el.style.display === "none" || el.style.visibility === "hidden") {
       return;
     }
-    // Bỏ qua phần tử thuộc widget của trợ lý
-    if (el.closest("#thongdvc-widget-container") || el.closest("#accessibility-assistant-panel")) {
+    if (el.closest("#thongdvc-widget-container") || el.closest("#accessibility-assistant-panel") || el.closest("#pii-confirm-modal-host")) {
       return;
     }
 
@@ -403,41 +557,8 @@ function getPageDOMStructure() {
     const required = el.hasAttribute("required");
     const selector = getUniqueSelector(el);
 
-    // Xác định nhãn (label) đi kèm
-    let labelText = "";
-    if (id) {
-      const labelEl = document.querySelector(`label[for="${id}"]`);
-      if (labelEl) {
-        labelText = labelEl.innerText || labelEl.textContent || "";
-      }
-    }
-    if (!labelText) {
-      const parentLabel = el.closest("label");
-      if (parentLabel) {
-        labelText = parentLabel.innerText || parentLabel.textContent || "";
-      }
-    }
-    if (!labelText && el.getAttribute("aria-label")) {
-      labelText = el.getAttribute("aria-label");
-    }
-    if (!labelText) {
-      // Tìm text node phía trước phần tử
-      let sibling = el.previousSibling;
-      while (sibling) {
-        if (sibling.nodeType === Node.TEXT_NODE && sibling.textContent.trim()) {
-          labelText = sibling.textContent.trim();
-          break;
-        } else if (sibling.nodeType === Node.ELEMENT_NODE && (sibling.tagName === "SPAN" || sibling.tagName === "LABEL")) {
-          labelText = sibling.innerText || sibling.textContent || "";
-          break;
-        }
-        sibling = sibling.previousSibling;
-      }
-    }
+    const labelText = findLabelForElement(el);
 
-    labelText = labelText.trim().replace(/\s+/g, " ").replace(/:\s*$/, "").slice(0, 100);
-
-    // Bỏ qua các trường thông tin trống không có nhãn, placeholder hoặc name
     if (tag !== "button" && type !== "button" && type !== "submit" && el.getAttribute("role") !== "button" && !(tag === "a" && el.classList.contains("btn"))) {
       if (!labelText && !placeholder && !name) {
         return;
@@ -474,12 +595,127 @@ function getPageDOMStructure() {
             value: opt.value
           }))
           .filter(opt => opt.text.length > 0);
-        fieldInfo.options = options.slice(0, 20); // Giới hạn 20 option
+        fieldInfo.options = options.slice(0, 20);
       }
 
       formFields.push(fieldInfo);
     }
   });
+
+  return {
+    status: "success",
+    page: {
+      title,
+      url,
+      headings,
+      formFields,
+      buttons
+    }
+  };
+}
+
+// Yêu cầu tất cả iframe con quét DOM nội bộ của chúng
+function requestChildFramesDOM(iframes) {
+  return new Promise((resolve) => {
+    const results = [];
+    const pendingFrames = new Set();
+    
+    const timeout = setTimeout(() => {
+      console.warn("[ThôngDVC] Thời gian quét các iframe con quá hạn. Trả về DOM hiện tại.");
+      cleanup();
+      resolve(results);
+    }, 400);
+
+    function cleanup() {
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timeout);
+    }
+
+    function onMessage(event) {
+      const msg = event.data;
+      if (msg && msg.type === "THONGDVC_RESPONSE_DOM" && pendingFrames.has(msg.frameSelector)) {
+        results.push({ frameSelector: msg.frameSelector, page: msg.page });
+        pendingFrames.delete(msg.frameSelector);
+        if (pendingFrames.size === 0) {
+          cleanup();
+          resolve(results);
+        }
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+
+    iframes.forEach((iframe) => {
+      try {
+        const frameSelector = getUniqueSelector(iframe);
+        pendingFrames.add(frameSelector);
+        iframe.contentWindow.postMessage({
+          type: "THONGDVC_REQUEST_DOM",
+          frameSelector: frameSelector
+        }, "*");
+      } catch (err) {
+        console.warn("[ThôngDVC] Lỗi khi postMessage đến iframe:", err);
+      }
+    });
+
+    if (pendingFrames.size === 0) {
+      cleanup();
+      resolve(results);
+    }
+  });
+}
+
+// Chờ phản hồi lệnh thực thi từ iframe con
+function waitForChildCommandResult(commandId) {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      childCommandResolvers.delete(commandId);
+      resolve({ status: "error", message: "Thực thi lệnh trên iframe quá hạn (timeout)" });
+    }, 4500);
+
+    childCommandResolvers.set(commandId, (result) => {
+      clearTimeout(timeout);
+      resolve(result);
+    });
+  });
+}
+
+// API chính quét hợp nhất DOM trang chính và toàn bộ iframes con
+async function getPageDOMStructure() {
+  const localDOM = getLocalPageDOMStructure();
+  if (localDOM.status !== "success") return localDOM;
+
+  const title = localDOM.page.title;
+  const url = localDOM.page.url;
+  const headings = localDOM.page.headings || [];
+  let formFields = localDOM.page.formFields || [];
+  let buttons = localDOM.page.buttons || [];
+
+  const iframes = Array.from(document.querySelectorAll("iframe"));
+  if (iframes.length > 0) {
+    console.log(`[ThôngDVC] Phát hiện ${iframes.length} iframe. Bắt đầu thu thập dữ liệu...`);
+    const childDOMs = await requestChildFramesDOM(iframes);
+    
+    childDOMs.forEach(({ frameSelector, page }) => {
+      if (page) {
+        if (page.formFields) {
+          page.formFields.forEach(field => {
+            field.selector = `${frameSelector} -> ${field.selector}`;
+            formFields.push(field);
+          });
+        }
+        if (page.buttons) {
+          page.buttons.forEach(btn => {
+            btn.selector = `${frameSelector} -> ${btn.selector}`;
+            buttons.push(btn);
+          });
+        }
+        if (page.headings) {
+          headings.push(...page.headings);
+        }
+      }
+    });
+  }
 
   return {
     status: "success",
