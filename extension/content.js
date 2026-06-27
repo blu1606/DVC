@@ -44,28 +44,30 @@ const FIELD_MAPPINGS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // KẾT NỐI WEBSOCKET ĐẾN BRIDGE SERVER
 // ─────────────────────────────────────────────────────────────────────────────
-const socket = new WebSocket("ws://localhost:8000");
+if (window === window.top) {
+  const socket = new WebSocket("ws://localhost:8000");
 
-socket.addEventListener("open", () => {
-  console.log("[EasyDVC] Extension đã kết nối với Bridge Server.");
-});
+  socket.addEventListener("open", () => {
+    console.log("[EasyDVC] Extension đã kết nối với Bridge Server.");
+  });
 
-socket.addEventListener("message", async (event) => {
-  let command;
-  try {
-    command = JSON.parse(event.data);
-  } catch (e) {
-    console.error("[EasyDVC] JSON không hợp lệ:", event.data);
-    return;
-  }
+  socket.addEventListener("message", async (event) => {
+    let command;
+    try {
+      command = JSON.parse(event.data);
+    } catch (e) {
+      console.error("[EasyDVC] JSON không hợp lệ:", event.data);
+      return;
+    }
 
-  const result = await handleCommand(command);
-  socket.send(JSON.stringify(result));
-});
+    const result = await handleCommand(command);
+    socket.send(JSON.stringify(result));
+  });
 
-socket.addEventListener("close", () => {
-  console.warn("[EasyDVC] Mất kết nối với Bridge Server.");
-});
+  socket.addEventListener("close", () => {
+    console.warn("[EasyDVC] Mất kết nối với Bridge Server.");
+  });
+}
 
 // Lắng nghe lệnh trực tiếp từ Extension Popup (cho WebRTC client-side)
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
@@ -200,21 +202,20 @@ function injectShadowUI({ html, mount, mode }) {
     if (host.parentElement !== document.body) {
       document.body.appendChild(host);
     }
-    delete host.dataset.dismissed;
+    host.removeAttribute("data-dismissed");
     setupAssistantCompanionPanel(host, assistantPanel);
   } else {
     if (!host.parentElement) {
       document.body.appendChild(host);
     }
+    const isChecklist = mount === "accessibility-assistant-panel";
     Object.assign(host.style, {
       position: "fixed",
-      top: "16px",
-      right: "max(16px, env(safe-area-inset-right))",
-      bottom: "auto",
-      left: "auto",
-      width: "min(360px, calc(100vw - 32px))",
-      zIndex: "2147483647",
-      boxSizing: "border-box",
+      top: isChecklist ? "16px" : "",
+      right: "16px",
+      bottom: isChecklist ? "" : "20px",
+      zIndex: "2147483646",
+      maxWidth: isChecklist ? "360px" : "",
     });
   }
 
@@ -224,22 +225,24 @@ function injectShadowUI({ html, mount, mode }) {
   }
 
   container.innerHTML = sanitizeHTML(normalizeAssistantPanelHTML(html, mount));
-  bindAssistantPanelActions(host, container, mount);
+  if (mount === "accessibility-assistant-panel") {
+    setupChecklistControls(host, container);
+  }
   return { status: "success", ui_id: "ui_checklist_active" };
 }
 
-function bindAssistantPanelActions(host, container, mount) {
-  if (mount !== "accessibility-assistant-panel") {
-    return;
-  }
-  const closeBtn = container.querySelector("[data-easydvc-close]");
-  if (!closeBtn) {
-    return;
-  }
-  closeBtn.addEventListener("click", (event) => {
+function setupChecklistControls(host, container) {
+  const toggleBtn = container.getElementById?.("toggle-checklist") || container.querySelector?.("#toggle-checklist");
+  const closeBtn = container.getElementById?.("close-checklist") || container.querySelector?.("#close-checklist, [data-easydvc-close]");
+  toggleBtn?.addEventListener("click", () => {
+    const collapsed = host.getAttribute("data-collapsed") === "true";
+    host.setAttribute("data-collapsed", collapsed ? "false" : "true");
+    toggleBtn.textContent = collapsed ? "-" : "+";
+  });
+  closeBtn?.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    host.dataset.dismissed = "true";
+    host.setAttribute("data-dismissed", "true");
     host.style.display = "none";
   });
 }
@@ -300,7 +303,7 @@ function cleanChecklistText(text) {
 function setupAssistantCompanionPanel(host, assistantPanel) {
   const sync = () => {
     positionAssistantCompanionPanel(host, assistantPanel);
-    const shouldShow = assistantPanel.classList.contains("show") && host.dataset.dismissed !== "true";
+    const shouldShow = assistantPanel.classList.contains("show") && host.getAttribute("data-dismissed") !== "true";
     host.style.display = shouldShow ? "block" : "none";
   };
 
@@ -620,10 +623,33 @@ function verifyActionResult(command, element) {
   };
 }
 
+function isLoginElement(el) {
+  if (!el) return false;
+  const href = (el.getAttribute("href") || "").toLowerCase();
+  const id = (el.id || "").toLowerCase();
+  const className = String(el.className || "").toLowerCase();
+  const target = (el.getAttribute("data-bs-target") || el.getAttribute("data-target") || "").toLowerCase();
+  const text = normalizeText(el.innerText || el.textContent || el.value || "").toLowerCase();
+  const hasLoginUrl = href.includes("login") || href.includes("dang-nhap") || href.includes("/tthc/login");
+  const hasLoginIdentity = id.includes("login") || className.includes("btn-login") || target.includes("login");
+  const hasLoginText = text.includes("đăng nhập") || text.includes("dang nhap") || text === "login";
+
+  if ((el.matches?.("a.nav-link.active") || className.includes("nav-link active")) && !hasLoginUrl && !hasLoginIdentity) {
+    return false;
+  }
+
+  return hasLoginUrl || hasLoginIdentity || hasLoginText;
+}
+
+function findLoginElement() {
+  return Array.from(document.querySelectorAll("a, button, [role='button']"))
+    .find(isLoginElement) || null;
+}
+
 function navigateToLogin(selector) {
   let loginSelector = selector;
   if (!loginSelector) {
-    const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+    const loginBtn = findLoginElement();
     if (loginBtn) {
       loginSelector = getUniqueSelector(loginBtn);
     }
@@ -631,14 +657,18 @@ function navigateToLogin(selector) {
 
   if (loginSelector) {
     const el = document.querySelector(loginSelector);
-    if (el) {
+    if (el && isLoginElement(el)) {
       el.click();
       return { status: "success", message: `Đã click vào nút đăng nhập (${loginSelector})` };
     }
   }
 
   const origin = window.location.origin;
-  window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+  if (origin.includes("dichvucong.gdt.gov.vn")) {
+    window.location.href = origin + "/tthc/login";
+  } else {
+    window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+  }
   return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
 }
 
@@ -1082,7 +1112,7 @@ function getUniqueSelector(el) {
 
 function checkLoginStatus() {
   // Tìm kiếm liên kết hoặc nút bấm đăng nhập
-  const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+  const loginBtn = findLoginElement();
   const userInfo = document.querySelector('.user-info, .profile-menu, #username-display, .login-username');
   
   if (userInfo) {
@@ -1094,7 +1124,7 @@ function checkLoginStatus() {
   
   // Fallback: Tìm text "Đăng nhập" trên toàn bộ trang
   const anchors = Array.from(document.querySelectorAll("a, button"));
-  const foundLogin = anchors.find(el => (el.innerText || "").toLowerCase().includes("đăng nhập"));
+  const foundLogin = anchors.find(isLoginElement);
   if (foundLogin) {
     return { status: "success", logged_in: false, login_selector: getUniqueSelector(foundLogin) };
   }
@@ -1104,15 +1134,21 @@ function checkLoginStatus() {
 }
 
 function buildChecklistHTML(steps) {
-  const doneCount = steps.filter(({ done }) => done).length;
+  const doneCount = steps.filter(({ done, status }) => done || status === "done").length;
   const totalCount = steps.length;
   const stepItems = steps
     .map(
-      ({ label, done }, index) => `
-      <li class="step ${done ? "done" : ""}">
-        <span class="step-index">${done ? "✓" : index + 1}</span>
+      ({ label, done, status, reason }, index) => {
+        const stepStatus = status || (done ? "done" : "todo");
+        const icon = stepStatus === "done" ? "✓" : stepStatus === "current" ? "→" : stepStatus === "blocked" ? "!" : index + 1;
+        const reasonHtml = reason ? `<span class="reason">${escapeHtml(reason)}</span>` : "";
+        return `
+      <li class="step ${escapeHtml(stepStatus)}">
+        <span class="icon">${escapeHtml(String(icon))}</span>
         <span class="label">${escapeHtml(normalizeChecklistLabel(label))}</span>
-      </li>`
+        ${reasonHtml}
+      </li>`;
+      }
     )
     .join("");
 
@@ -1123,6 +1159,8 @@ function buildChecklistHTML(steps) {
         display: block;
         color: #f8fafc;
       }
+      :host([data-collapsed="true"]) .body { display: none; }
+      :host([data-collapsed="true"]) .panel { min-width: 0; width: auto; }
       .panel {
         background: #0f172a;
         color: #f8fafc;
@@ -1133,30 +1171,23 @@ function buildChecklistHTML(steps) {
         overflow: hidden;
         max-height: inherit;
       }
-      summary {
+      .header {
         min-height: 42px;
-        padding: 9px 12px;
         display: grid;
         grid-template-columns: 1fr auto auto;
         align-items: center;
         gap: 8px;
-        cursor: pointer;
-        user-select: none;
+        padding: 9px 12px;
+        background: rgba(15, 23, 42, 0.55);
       }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      summary:focus-visible {
-        outline: 3px solid rgba(96, 165, 250, 0.42);
-        outline-offset: -3px;
-      }
-      .summary-title {
+      .title {
+        margin: 0;
         font-size: 14px;
         line-height: 1.35;
         font-weight: 700;
         color: #e2e8f0;
       }
-      .summary-meta {
+      .meta {
         flex: 0 0 auto;
         padding: 3px 8px;
         border-radius: 999px;
@@ -1166,80 +1197,93 @@ function buildChecklistHTML(steps) {
         font-weight: 700;
         white-space: nowrap;
       }
-      .close {
-        width: 30px;
-        height: 30px;
-        border: none;
-        border-radius: 8px;
-        background: rgba(148, 163, 184, 0.12);
-        color: #cbd5e1;
-        cursor: pointer;
-        font-size: 18px;
-        line-height: 1;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+      .controls {
+        display: flex;
+        gap: 6px;
       }
-      .close:hover {
+      button {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.75);
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+      }
+      button:hover { background: rgba(51, 65, 85, 0.95); }
+      #close-checklist:hover {
         background: rgba(248, 113, 113, 0.18);
         color: #fecaca;
       }
-      .close:focus-visible {
-        outline: 3px solid rgba(96, 165, 250, 0.42);
-        outline-offset: 2px;
-      }
-      .steps {
-        list-style: none;
+      .body {
         padding: 0 12px 8px;
-        margin: 0;
         max-height: min(340px, calc(100vh - 190px));
         overflow-y: auto;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
       }
       .step {
         display: grid;
         grid-template-columns: 24px 1fr;
-        align-items: start;
         gap: 8px;
         padding: 8px 0;
         border-top: 1px solid rgba(148, 163, 184, 0.18);
         font-size: 14px;
         line-height: 1.35;
-        color: #e2e8f0;
       }
-      .step-index {
+      .step.done .label { color: #94a3b8; text-decoration: line-through; }
+      .step.current {
+        margin: 6px -8px;
+        padding: 10px 8px;
+        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.14);
+      }
+      .step.current .label { color: #f8fafc; font-weight: 700; }
+      .step.blocked .label { color: #fde68a; }
+      .icon {
         width: 22px;
         height: 22px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(96, 165, 250, 0.16);
-        color: #bfdbfe;
-        font-size: 12px;
+        background: rgba(148, 163, 184, 0.16);
+        font-size: 14px;
         font-weight: 800;
+        flex-shrink: 0;
       }
-      .step.done .step-index {
-        background: rgba(16, 185, 129, 0.18);
-        color: #86efac;
-      }
-      .step.done .label {
-        color: #94a3b8;
-        text-decoration: line-through;
+      .step.done .icon { background: rgba(16, 185, 129, 0.22); color: #86efac; }
+      .step.current .icon { background: rgba(16, 185, 129, 0.32); color: #a7f3d0; }
+      .step.blocked .icon { background: rgba(251, 191, 36, 0.18); color: #fde68a; }
+      .reason {
+        grid-column: 2;
+        color: #cbd5e1;
+        font-size: 12.5px;
+        line-height: 1.35;
+        margin-top: -4px;
       }
       @media (max-width: 480px) {
-        .summary-title { font-size: 13.5px; }
-        .steps { max-height: 124px; }
+        .title { font-size: 13.5px; }
+        .body { max-height: 124px; }
         .step { font-size: 13px; }
       }
     </style>
-    <details class="panel" data-easydvc-checklist="true" open>
-      <summary>
-        <span class="summary-title">Các bước cần làm</span>
-        <span class="summary-meta">${doneCount}/${totalCount || 0} xong</span>
-        <button class="close" type="button" data-easydvc-close aria-label="Tắt checklist">×</button>
-      </summary>
-      <ol class="steps">${stepItems}</ol>
-    </details>
+    <div class="panel" data-easydvc-checklist="true">
+      <div class="header">
+        <h3 class="title">Các bước cần làm</h3>
+        <span class="meta">${doneCount}/${totalCount || 0} xong</span>
+        <div class="controls">
+          <button id="toggle-checklist" type="button" title="Thu gọn/mở rộng">−</button>
+          <button id="close-checklist" type="button" title="Đóng">×</button>
+        </div>
+      </div>
+      <div class="body"><ul>${stepItems}</ul></div>
+    </div>
   `;
 }
 

@@ -4,7 +4,7 @@
  */
 
 (function () {
-  if (typeof window === "undefined" || document.getElementById("thongdvc-widget-container")) {
+  if (typeof window === "undefined" || window !== window.top || document.getElementById("thongdvc-widget-container")) {
     return;
   }
 
@@ -308,6 +308,8 @@
   let functionCallNames = {};
   let toolCallProgressShown = new Set();
   let isSendingChat = false;
+  let isAiSpeaking = false;
+  let isUserSpeaking = false;
   const micBtn = document.getElementById("thongdvc-mic-btn");
   const panel = document.getElementById("thongdvc-panel");
   const closeBtn = document.getElementById("thongdvc-close-btn");
@@ -352,6 +354,26 @@
     logEl.appendChild(bubble);
     logEl.scrollTop = logEl.scrollHeight;
     return bubble;
+  }
+
+  function isExtensionContextInvalidated(error) {
+    return String(error?.message || error || "").toLowerCase().includes("extension context invalidated");
+  }
+
+  function showExtensionReloadRequired(error) {
+    const message = isExtensionContextInvalidated(error)
+      ? "Extension vừa được reload. Bác tải lại trang này rồi mở trợ lý lại nhé."
+      : (error?.message || error || "Không thể kết nối.");
+    setStatus("Cần tải lại trang.", "#f87171");
+    appendLog("Lỗi", message, "error");
+  }
+
+  function isLikelyNoiseTranscript(text) {
+    const normalized = (text || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return true;
+    if (normalized.length < 3) return true;
+    if (/^[.,!?…\-\s]+$/.test(normalized)) return true;
+    return false;
   }
 
   function formatErrorMessage(error) {
@@ -546,9 +568,13 @@
   function onVoiceEvent(msg) {
     if (msg.type === "status") {
       if (msg.status === "ai_speaking") {
+        isAiSpeaking = true;
         setStatus("Trợ lý đang nói...", "#10b981");
       } else if (msg.status === "ai_stopped") {
-        setStatus("Đang lắng nghe bác...", "#60a5fa");
+        isAiSpeaking = false;
+        if (!isUserSpeaking) {
+          setStatus("Đang lắng nghe bác...", "#60a5fa");
+        }
       }
     } else if (msg.type === "agent_end") {
       const finalText = (msg.text || "").trim();
@@ -558,14 +584,24 @@
       finalizeAiStreaming();
     } else if (msg.type === "error") {
       setStatus("Lỗi kết nối!", "#f87171");
-      appendLog("Lỗi", formatErrorMessage(msg.error), "error");
-      stopVoiceSession();
+      showExtensionReloadRequired(msg.error);
+      stopVoiceSession({ silent: true });
     } else if (msg.type === "transport_event") {
       const event = msg.event;
+      if (event.type === "input_audio_buffer.speech_started") {
+        isUserSpeaking = true;
+        setStatus(isAiSpeaking ? "Đã nghe bác, đang ngắt lời trợ lý..." : "Đang nghe bác nói...", "#fbbf24");
+      }
+      if (event.type === "input_audio_buffer.speech_stopped") {
+        isUserSpeaking = false;
+        setStatus("Đang xử lý lời bác...", "#fbbf24");
+      }
       // 1. User finished speaking, transcript completed
       if (event.type === "conversation.item.input_audio_transcription.completed") {
-        if (event.transcript && event.transcript.trim()) {
-          appendLog("Bạn", event.transcript, "user");
+        if (!isLikelyNoiseTranscript(event.transcript)) {
+          appendLog("Bạn", event.transcript.trim(), "user");
+        } else {
+          console.debug("[EasyDVC] Bỏ qua transcript nhiễu/rỗng:", event.transcript);
         }
       }
       // 2. Real-time AI text/audio transcript deltas
@@ -621,7 +657,13 @@
       if (errMsg.includes("permission") || errMsg.includes("dismissed") || errName.includes("notallowederror")) {
         setStatus("Chưa có quyền micro.", "#f87171");
         appendLog("Lỗi", "Vui lòng cấp quyền micro trong tab mới để tiếp tục.", "error");
-        window.open(chrome.runtime.getURL("permission.html"));
+        try {
+          window.open(chrome.runtime.getURL("permission.html"));
+        } catch (runtimeErr) {
+          showExtensionReloadRequired(runtimeErr);
+        }
+      } else if (isExtensionContextInvalidated(err)) {
+        showExtensionReloadRequired(err);
       } else {
         setStatus("Không kết nối được trợ lý thoại.", "#f87171");
         appendLog("Lỗi", formatErrorMessage(err), "error");
@@ -630,16 +672,26 @@
   }
 
   // Stop Session
-  function stopVoiceSession() {
+  function stopVoiceSession(options = {}) {
     if (session) {
-      window.WebRTCClient.closeVoiceSession(session);
+      try {
+        window.WebRTCClient.closeVoiceSession(session);
+      } catch (err) {
+        if (!isExtensionContextInvalidated(err)) {
+          appendLog("Lỗi", err.message || "Không thể đóng phiên thoại.", "error");
+        }
+      }
       session = null;
     }
     micBtn.classList.remove("active");
-    setStatus("Đã ngắt kết nối thoại.", "#94a3b8");
+    if (!options.silent) {
+      setStatus("Đã ngắt kết nối thoại.", "#94a3b8");
+    }
     toggleBtn.innerText = "Bắt đầu nói";
     toggleBtn.className = "thongdvc-btn thongdvc-btn-start";
-    appendLog("Trạng thái", "Đã tắt chế độ thoại.", "warning");
+    if (!options.silent) {
+      appendLog("Trạng thái", "Đã tắt chế độ thoại.", "warning");
+    }
   }
 
   toggleBtn.addEventListener("click", () => {
@@ -649,6 +701,19 @@
       stopVoiceSession();
     }
   });
+
+  function summarizePlan(plan) {
+    if (!plan || !Array.isArray(plan.steps)) {
+      return "";
+    }
+    const current = plan.steps.find(step => step.status === "current") || plan.steps.find(step => step.status === "blocked");
+    const doneCount = plan.steps.filter(step => step.status === "done" || step.done).length;
+    const total = plan.steps.length;
+    if (!current) {
+      return total ? `Đã lập kế hoạch ${doneCount}/${total} bước.` : "";
+    }
+    return `Bước tiếp theo: ${current.label || current.id}. (${doneCount}/${total} đã xong)`;
+  }
 
   async function sendChatMessage() {
     const text = chatInput.value.trim();
@@ -664,12 +729,18 @@
         appendLog("Bạn", maskedText, "user");
         chatInput.value = "";
         
-        const confirmed = await window.handleCommand({
-          action: "show_pii_confirm",
-          masked_text: maskedText,
-          raw_text: text,
-          tokens: Array.from(window.WebRTCClient.getTokenMap().entries())
-        });
+        let confirmed;
+        try {
+          confirmed = await window.handleCommand({
+            action: "show_pii_confirm",
+            masked_text: maskedText,
+            raw_text: text,
+            tokens: Array.from(window.WebRTCClient.getTokenMap().entries())
+          });
+        } catch (err) {
+          showExtensionReloadRequired(err);
+          return;
+        }
         
         if (confirmed && confirmed.confirmed) {
           textToSend = maskedText;
@@ -701,21 +772,53 @@
     const pendingBubble = appendProgressLog("đang xử lý yêu cầu của bác...");
 
     try {
+      let domSnapshot = null;
+      if (typeof window.handleCommand === "function") {
+        try {
+          const snapshot = await window.handleCommand({ action: "read_dom" });
+          if (snapshot && snapshot.status === "success") {
+            domSnapshot = snapshot;
+          }
+        } catch (snapshotErr) {
+          console.warn("[EasyDVC] Không đọc được DOM context cho text chat:", snapshotErr);
+        }
+      }
+
       const response = await fetch("http://localhost:8001/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message: textToSend })
+        body: JSON.stringify({ message: textToSend, domSnapshot, currentUrl: window.location.href })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || `HTTP ${response.status}`);
       }
       pendingBubble.remove();
+      const planSummary = summarizePlan(data.plan);
+      if (planSummary) {
+        appendLog("Tiến độ", planSummary, "warning");
+      } else if (Array.isArray(data.tool_actions) && data.tool_actions.length > 0) {
+        console.debug("[EasyDVC] Tool actions:", data.tool_actions);
+      }
       const assistantReply = data.reply || "Cháu chưa có câu trả lời phù hợp.";
       appendLog("Trợ lý", assistantReply, "agent");
       await maybeShowSupportedProcedureChecklist(textToSend, assistantReply);
+      if (data.plan?.use_browser_agent) {
+        setStatus("Browser agent đang mở Chrome riêng...", "#fbbf24");
+        const browserResponse = await fetch("http://localhost:8001/browser-task", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message: textToSend, domSnapshot, currentUrl: window.location.href })
+        });
+        const browserData = await browserResponse.json().catch(() => ({}));
+        if (browserData.reply) {
+          appendLog("Browser agent", browserData.reply, browserResponse.ok ? "agent" : "error");
+        }
+      }
       setStatus(session ? "Đang lắng nghe bác..." : "Chat sẵn sàng. Thoại đang tắt.", session ? "#60a5fa" : "#94a3b8");
     } catch (err) {
       pendingBubble.remove();
