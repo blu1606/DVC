@@ -1,0 +1,631 @@
+# EasyDVC
+
+> Trợ lý thoại thông minh sử dụng OpenAI Realtime WebRTC để hỗ trợ người cao tuổi Việt Nam thực hiện thủ tục hành chính trên cổng Dịch vụ công Quốc gia (dichvucong.gov.vn).
+
+## Core Documentation
+
+- [Project Overview & PDR](docs/project-overview-pdr.md): Giới thiệu chung, mục tiêu thiết kế và yêu cầu phát triển của EasyDVC.
+- [System Architecture](docs/system-architecture.md): Sơ đồ kiến trúc tổng quan, thiết kế luồng bảo mật PII Shield (Solution A) và tương tác DOM Caching.
+- [Codebase Summary](docs/codebase-summary.md): Bản đồ cấu trúc thư mục, chi tiết vai trò của từng tệp mã nguồn trong dự án.
+- [Code Standards](docs/code-standards.md): Bộ quy chuẩn thiết kế mã nguồn, nguyên tắc Shadow DOM isolation và Zero-State PII.
+
+## Guides & Roadmap
+
+- [Project Roadmap & Changelog](docs/project-roadmap.md): Nhật ký thay đổi và lộ trình phát triển qua các giai đoạn.
+- [Voice Agent Integration Guide](docs/voice-agent-integration-guide.md): Hướng dẫn chi tiết tích hợp Realtime Agent trực tiếp ở Chrome Extension.
+- [WebRTC Realtime Integration](docs/webrtc-realtime-integration.md): Hướng dẫn chi tiết về cấu hình, tối ưu hóa giao thức kết nối WebRTC.
+
+
+---
+
+# Full Documentation Content
+
+## File: docs/code-standards.md
+
+# Code Standards & Guidelines
+
+Dự án **EasyDVC** tuân thủ các nguyên tắc thiết kế mã nguồn tối giản, hiệu quả và bảo mật cao để đảm bảo Chrome Extension hoạt động mượt mà trên bất kỳ trang dịch vụ công nào.
+
+## 1. Nguyên tắc kiến trúc (Architectural Principles)
+*   **YAGNI (You Aren't Gonna Need It)**: Tránh phát triển các tính năng dư thừa, giữ mã nguồn tinh gọn dưới 200 dòng đối với các file chức năng độc lập (ngoại trừ các file template DOM tĩnh hoặc bundle biên dịch).
+*   **Tách biệt giao diện (UI Isolation)**: Toàn bộ giao diện tiêm từ Extension vào trang web (Checklist, Voice Widget, PII Modal) bắt buộc phải sử dụng **Shadow DOM** để tránh bị ảnh hưởng bởi CSS của trang chủ và ngược lại.
+*   **Zero-State PII**: Không gửi bất kỳ dữ liệu cá nhân thô nào lên mô hình AI. Việc lưu trữ PII chỉ diễn ra cục bộ trong bộ nhớ tạm (RAM) của client.
+
+## 2. Tiêu chuẩn mã nguồn Javascript (Chrome Extension)
+*   **Sử dụng Vanilla JS & ES6+**: Tránh phụ thuộc vào các thư viện UI cồng kềnh như React/Vue ở Content Script nhằm tối ưu hóa bộ nhớ và tốc độ render.
+*   **Bất đồng bộ & Xử lý DOM**:
+    *   Khi tìm kiếm hoặc tương tác với phần tử DOM tải bất đồng bộ (AJAX), luôn sử dụng vòng lặp thăm dò (polling) với số lần thử tối đa và độ trễ hợp lý để tránh lỗi nghẽn.
+    *   Mọi thay đổi giá trị form cần kích hoạt các sự kiện `input` và `change` một cách rõ ràng để trang web nhận diện được dữ liệu mới nhập:
+        ```javascript
+        el.value = val;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        ```
+
+## 3. Tiêu chuẩn mã nguồn Python (Backend)
+*   **Định dạng kiểu (Type Hints)**: Tất cả các khai báo hàm công cụ (`@function_tool`) của Agent phải khai báo rõ kiểu dữ liệu của đối số và mô tả docstring chi tiết để mô hình AI nhận diện chính xác.
+*   **Xử lý lỗi (Error Handling)**: Sử dụng các khối `try...except` bao quanh các lệnh gọi API để trả về phản hồi định dạng JSON có cấu trúc `{"status": "error", "message": "..."}` thay vì gây sập tiến trình server.
+
+## 4. Quy trình bảo mật & Đóng gói
+*   **Không commit file nhạy cảm**: Không đưa tệp `.env`, API Keys, credentials vào git repository.
+*   **Đóng gói WebRTC Client**: Sau khi sửa đổi `webrtc-client.js`, bắt buộc phải chạy lệnh build esbuild để biên dịch lại bundle:
+    ```bash
+    npx esbuild extension/webrtc-client.js --bundle --outfile=extension/webrtc-client.bundle.js
+    ```
+
+
+---
+
+## File: docs/codebase-summary.md
+
+# Codebase Summary
+
+Cấu trúc thư mục của dự án **EasyDVC** bao gồm hai thành phần chính: Chrome Extension (Client) và Agent Bridge Server (Backend).
+
+## 1. Bản đồ thư mục (Directory Tree)
+
+```
+DVC/
+├── docs/                               # Tài liệu hướng dẫn & thiết kế
+│   ├── project-overview-pdr.md
+│   ├── codebase-summary.md
+│   ├── code-standards.md
+│   ├── system-architecture.md
+│   └── project-roadmap.md
+├── extension/                          # Mã nguồn của Chrome Extension
+│   ├── manifest.json                   # Cấu hình Extension Manifest V3
+│   ├── webrtc-client.js                # Core quản lý OpenAI Realtime WebRTC
+│   ├── webrtc-client.bundle.js         # Bản build bundle đóng gói qua esbuild
+│   ├── content.js                      # Content script tương tác DOM chính
+│   ├── pii-shield.js                   # Lớp bảo mật che dấu CCCD/SĐT
+│   ├── ui-builder.js                   # Trình tạo giao diện Checklist (GenUI)
+│   ├── voice-widget.js                 # Widget nổi hiển thị micro & chat log
+│   ├── popup.html / popup.js           # Giao diện popup extension
+│   └── permission.html / permission.js # Trang xin quyền truy cập Microphone
+├── backend/                            # Python Backend Server
+│   ├── agent_server.py                 # Máy chủ Agent điều khiển bằng gpt-4o
+│   └── ...                             # Các module hỗ trợ kết nối WebSocket Bridge
+├── test-dvc-cascading.html             # Trang mockup cổng dịch vụ công để test
+└── README.md                           # Giới thiệu & Hướng dẫn cài đặt nhanh
+```
+
+---
+
+## 2. Chi tiết vai trò của các tệp (File Roles)
+
+### 🌐 Phân hệ Chrome Extension (`extension/`)
+
+*   **[manifest.json](file:///d:/CODE/Hackathon/CODEX/DVC/extension/manifest.json)**: Khai báo quyền (permissions: activeTab, storage, scripting), các tệp content script tiêm vào trang web, và popup cấu hình.
+*   **[webrtc-client.js](file:///d:/CODE/Hackathon/CODEX/DVC/extension/webrtc-client.js)**: Khởi tạo kết nối WebRTC với OpenAI, đăng ký schema các tool Client (fill_field, click_element, fill_address_cascade, etc.) và thực hiện che chắn thông tin nhạy cảm ở sự kiện `input_audio_transcription.completed`.
+*   **[content.js](file:///d:/CODE/Hackathon/CODEX/DVC/extension/content.js)**: Tệp xử lý DOM chính chạy trong ngữ cảnh trang web. Thực hiện điền dữ liệu, click nút, kiểm tra trạng thái login, vẽ UI xác nhận PII, và chứa logic điền địa chỉ hành chính 3 cấp bất đồng bộ.
+*   **[pii-shield.js](file:///d:/CODE/Hackathon/CODEX/DVC/extension/pii-shield.js)**: Sử dụng các biểu thức chính quy (Regex) để trích xuất, thay thế chuỗi số CCCD (12 số) và số điện thoại (10 số) thành token dạng `[CCCD_N]` / `[PHONE_N]`, lưu vết mapping để khôi phục (unmask) cục bộ trước khi điền form.
+*   **[voice-widget.js](file:///d:/CODE/Hackathon/CODEX/DVC/extension/voice-widget.js)**: Tiêm một nút tròn nổi hình Micro và panel chat log vào trang web. Nhận các sự kiện từ `webrtc-client` để vẽ phụ đề thoại của người dùng và câu trả lời của AI theo thời gian thực.
+*   **[ui-builder.js](file:///d:/CODE/Hackathon/CODEX/DVC/extension/ui-builder.js)**: Xây dựng các mẫu giao diện động (GenUI) như thanh tiến trình checklist hướng dẫn điền form.
+
+### 🐍 Phân hệ Python Backend (`backend/`)
+
+*   **[agent_server.py](file:///d:/CODE/Hackathon/CODEX/DVC/backend/agent_server.py)**: Sử dụng thư viện `google-genai` hoặc các công cụ Agent để liên kết các tool Python với Client thông qua giao thức WebSocket Bridge. Chứa các system prompt để điều hướng nghiệp vụ.
+
+### 🧪 Mockup Kiểm thử
+
+*   **[test-dvc-cascading.html](file:///d:/CODE/Hackathon/CODEX/DVC/test-dvc-cascading.html)**: Tạo ra một trang web mô phỏng cổng dịch vụ công với đầy đủ các dropdown địa chỉ Tỉnh -> Huyện -> Xã tải bất đồng bộ (trễ AJAX 600ms) phục vụ kiểm thử luồng chạy hoàn chỉnh của Extension.
+
+
+---
+
+## File: docs/project-overview-pdr.md
+
+# Project Overview & Product Development Requirements (PDR)
+
+## 1. Giới thiệu dự án (Project Overview)
+**EasyDVC** là trợ lý giọng nói thông minh được thiết kế đặc biệt dưới dạng Chrome Extension để hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến trên cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`). 
+
+Hệ thống kết hợp sức mạnh giao tiếp tự nhiên của mô hình AI Realtime (OpenAI WebRTC) với khả năng tương tác trực tiếp lên trình duyệt để đơn giản hóa biểu mẫu và tối ưu hóa trải nghiệm cho người lớn tuổi.
+
+## 2. Mục tiêu sản phẩm (Objectives)
+*   **Thân thiện với người cao tuổi**: Giao tiếp bằng giọng nói tiếng Việt tự nhiên, ấm áp, lễ phép, phản hồi nhanh nhạy.
+*   **Bảo mật dữ liệu cá nhân (PII Shield)**: Ngăn chặn tuyệt đối việc truyền thông tin nhạy cảm (như số CCCD, số điện thoại) lên máy chủ AI bằng giải pháp mã hóa cục bộ và hộp thoại xác nhận visual ở Client (Solution A).
+*   **Tương tác DOM thông minh**: Hỗ trợ điền thông tin tự động, điền nhanh địa chỉ 3 cấp đồng bộ bất đồng bộ, điền nhanh hồ sơ và hiển thị checklist hướng dẫn trực quan (GenUI).
+
+## 3. Yêu cầu tính năng (Functional Requirements)
+
+### Phân hệ 1: Trợ lý giọng nói & Điều khiển (WebRTC Voice Client)
+*   Kết nối trực tiếp từ trình duyệt tới OpenAI Realtime qua WebRTC.
+*   Hỗ trợ chế độ rảnh tay (Server VAD) giúp người cao tuổi nói chuyện không cần bấm giữ.
+*   Hiển thị bong bóng chat (Voice Widget) nổi trên màn hình cập nhật trạng thái thời gian thực.
+
+### Phân hệ 2: Quản lý đăng nhập & Điều hướng thông minh
+*   Tự động phát hiện trạng thái đăng nhập khi người dùng truy cập.
+*   Nếu chưa đăng nhập, tự động phát hiện và click nút đăng nhập hoặc chuyển hướng tương đối sang trang đăng nhập.
+
+### Phân hệ 3: Tối ưu hóa DOM & Caching
+*   Sử dụng bộ đệm cấu trúc trang phẳng (`DVC_FORM_TEMPLATES`) để giảm lượng token gửi lên AI từ hàng chục ngàn xuống còn vài trăm.
+*   Cơ chế cập nhật trạng thái form theo thời gian thực và đồng bộ dữ liệu.
+
+### Phân hệ 4: Bảo mật dữ liệu cục bộ (PII Shield)
+*   Tự động phát hiện và che giấu SĐT, CCCD thành các token bảo mật (`[🔒 CCCD_1]`, `[🔒 PHONE_1]`) trong phụ đề hiển thị.
+*   Hiển thị modal xác nhận Visual ở Client. Chỉ khi người dân bấm "Đồng ý", thông tin mới được nạp vào bộ nhớ tạm để điền form.
+
+### Phân hệ 5: Điền form & Địa chỉ 3 cấp (Cascading Address)
+*   Điền nhanh thông tin cá nhân cơ bản (Bulk Fill).
+*   Xử lý bất đồng bộ AJAX khi điền địa chỉ hành chính 3 cấp (Tỉnh -> Quận -> Phường) bằng cơ chế thăm dò vòng lặp (polling) thông minh.
+
+---
+
+## 4. Yêu cầu phi chức năng (Non-Functional Requirements)
+*   **Hiệu năng**: Thời gian phản hồi giọng nói (latency) dưới 1.5 giây.
+*   **Dung lượng Extension**: Tối ưu hóa dung lượng bundle dưới 3MB.
+*   **Độ tin cậy**: Hoạt động bền bỉ, xử lý tốt các ngoại lệ mất mạng hoặc lỗi micro.
+*   **Bảo mật**: Không lưu trữ vĩnh viễn thông tin CCCD hay SĐT của người dùng trên máy chủ trung gian.
+
+
+---
+
+## File: docs/project-roadmap.md
+
+# Project Roadmap & Changelog
+
+Tài liệu này theo dõi tiến độ phát triển của dự án **EasyDVC** theo các cột mốc quan trọng.
+
+## 1. Lộ trình phát triển (Development Roadmap)
+
+```mermaid
+gantt
+    title Lộ trình EasyDVC
+    dateFormat  YYYY-MM-DD
+    section Giai đoạn 1: Core & Autofill
+    Kiểm tra Login & Điều hướng động :done, 2026-06-25, 2d
+    DOM Caching phẳng & Checklist GenUI :done, 2026-06-26, 1d
+    PII Shield (Solution A) & Thoại WebRTC :done, 2026-06-27, 1d
+    Địa chỉ 3 cấp & Điền hàng loạt :done, 2026-06-27, 1d
+    section Giai đoạn 2: Tối ưu & Mở rộng
+    Hỗ trợ Tệp đính kèm tự động :active, 2026-07-01, 5d
+    Mở rộng Template cho 50 dịch vụ phổ biến : 2026-07-06, 10d
+    section Giai đoạn 3: Bảo mật nâng cao
+    Tích hợp xác thực OTP qua Zalo : 2026-07-20, 7d
+```
+
+### Chi tiết các giai đoạn:
+
+#### Giai đoạn 1: Trợ lý lõi & Tự động hóa Biểu mẫu (Hiện tại - Đã hoàn thành 100%)
+*   [x] Thiết lập kết nối thoại WebRTC OpenAI Realtime rảnh tay (VAD).
+*   [x] Phát hiện trạng thái đăng nhập và điều hướng thông minh không hardcode.
+*   [x] Giảm 95% token sử dụng qua cơ chế DOM Caching tĩnh theo URL.
+*   [x] Triển khai PII Shield mã hóa CCCD/SĐT cục bộ kèm Modal xác nhận trực quan (Solution A).
+*   [x] Tự động hóa điền địa chỉ hành chính 3 cấp vượt trễ AJAX.
+
+#### Giai đoạn 2: Tối ưu hóa trải nghiệm & Mở rộng dịch vụ (Kế hoạch tiếp theo)
+*   [ ] Phát triển công cụ tự động tải lên tài liệu đính kèm (sổ hộ khẩu, giấy khai sinh...).
+*   [ ] Xây dựng thư viện templates DOM caching hỗ trợ 50 dịch vụ công thiết yếu khác.
+*   [ ] Tối ưu hóa phụ đề giọng nói mượt mà hơn.
+
+#### Giai đoạn 3: Đồng bộ & Xác thực nâng cao (Kế hoạch tương lai)
+*   [ ] Kích hoạt lại kênh đồng bộ Zalo OTP bảo mật khi hệ thống backend sẵn sàng.
+*   [ ] Đóng gói và phát hành Extension lên Chrome Web Store.
+
+---
+
+## 2. Nhật ký thay đổi (Changelog)
+
+### [Phiên bản 1.0.0] - 2026-06-27
+*   **Thêm mới**: Tạo trang mockup `test-dvc-cascading.html` để kiểm thử cục bộ mượt mà.
+*   **Thêm mới**: Lớp `PIIShield` quét regex số CCCD & SĐT và hiển thị modal xác nhận cục bộ trước khi AI thực hiện điền.
+*   **Cải tiến**: Loại bỏ việc quét DOM thô, thay bằng bộ đệm mẫu `DVC_FORM_TEMPLATES` giúp giảm chi phí token.
+*   **Cải tiến**: Thiết lập hàm `fillAddressCascading` dùng cơ chế thăm dò đợi dropdown con tải xong mới chọn tiếp.
+
+
+---
+
+## File: docs/system-architecture.md
+
+# System Architecture
+
+Hệ thống **EasyDVC** sử dụng kiến trúc phân lớp kết hợp mô hình Hybrid Client-Agent để tối đa hóa tốc độ phản hồi và bảo vệ thông tin nhạy cảm.
+
+## 1. Sơ đồ kiến trúc tổng quan (High-Level Architecture)
+
+Hệ thống có thể chạy dưới 2 chế độ độc lập hoặc song song:
+
+```
+[Người dùng (Giọng nói)]
+        │
+        ▼
+┌────────────────────────────────────────────────────────┐
+│               CHROME EXTENSION (CLIENT)                │
+│                                                        │
+│  ┌─────────────────┐           ┌────────────────────┐  │
+│  │  Voice Widget   │◄─────────►│   webrtc-client    │  │
+│  │  (Giao diện nổi)│           │   (WebRTC Core)    │  │
+│  └─────────────────┘           └─────────┬──────────┘  │
+│                                          │             │
+│                                          ▼             │
+│  ┌─────────────────┐           ┌────────────────────┐  │
+│  │   PII Shield    │◄─────────►│     content.js     │  │
+│  │ (Mã hóa cục bộ) │           │ (Tương tác DOM/UI) │  │
+│  └─────────────────┘           └────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+        ▲                                  ▲
+        │ (Kênh WebSocket Bridge)          │ (Kết nối WebRTC trực tiếp)
+        ▼                                  ▼
+┌────────────────────────┐       ┌────────────────────────┐
+│     BACKEND PYTHON     │       │     OPENAI REALTIME    │
+│  (agent_server.py)     │       │          API           │
+└────────────────────────┘       └────────────────────────┘
+```
+
+---
+
+## 2. Luồng xử lý PII Shield & Xác thực cục bộ (Solution A)
+
+Khi người dùng nói các thông tin nhạy cảm như số CCCD hay số điện thoại, quy trình bảo mật diễn ra như sau:
+
+```mermaid
+sequenceDiagram
+    participant U as Người Dùng (Thoại)
+    participant W as Whisper (OpenAI)
+    participant C as WebRTC Client (Extension)
+    participant P as PII Shield (RAM)
+    participant DOM as Trang Web (content.js)
+
+    U->>W: Đọc số CCCD "037199001234"
+    W->>C: Trả về transcript văn bản thô
+    C->>P: Chạy piiShield.mask(rawText)
+    P-->>C: Thay thế bằng token "[🔒 CCCD_1]"
+    C->>DOM: Yêu cầu hiển thị Modal xác nhận PII (Solution A)
+    DOM->>U: Hiển thị Modal "Bác có muốn điền số 037199001234 vào form không?"
+    U->>DOM: Bấm "Đồng ý"
+    DOM-->>C: Trả về trạng thái Xác nhận thành công (true)
+    Note over C,P: Giữ lại token và số thật trong RAM cục bộ
+    C->>DOM: Điền giá trị thật vào ô nhập liệu khi Agent gọi tool fill_field
+```
+
+---
+
+## 3. Kiến trúc Tương tác DOM & Caching
+*   **DOM Caching**: Khi bắt đầu phiên, content script lấy URL của trang hiện tại. Nếu khớp với `/dvc-tthc-dang-ky-thuong-tru` hoặc `/dvc-tthc-cap-lai-the-bhyt`, hệ thống sẽ nạp trực tiếp cấu trúc DOM rút gọn từ `DVC_FORM_TEMPLATES` mà không cần duyệt cây DOM thực tế của trang web.
+*   **Trình điền địa chỉ hành chính 3 cấp (Cascading Dropdown)**: 
+    *   Hàm `fillAddressCascading` thực hiện thay đổi giá trị của dropdown `#prov`, sau đó chạy vòng lặp kiểm tra thuộc tính `options.length` của `#dist` mỗi 200ms (tối đa 2 giây).
+    *   Sau khi `#dist` được nạp, tiếp tục chọn Huyện và kiểm tra thuộc tính `options.length` của `#ward`.
+    *   Cuối cùng chọn Xã/Phường để hoàn tất.
+
+
+---
+
+## File: docs/voice-agent-integration-guide.md
+
+# Hướng dẫn Tích hợp Công nghệ Voice Agent (Trợ lý Giọng nói Độ trễ thấp)
+
+Tài liệu này cung cấp hướng dẫn lập trình và lựa chọn kiến trúc khi tích hợp các tính năng tương tác giọng nói thời gian thực cho dự án **ThôngDVC** sử dụng OpenAI Realtime API và SDK.
+
+---
+
+## 1. Lựa chọn Kiến trúc Hệ thống (Choose the Right Architecture)
+
+Tùy theo nghiệp vụ cụ thể của từng biểu mẫu dịch vụ công, nhà phát triển cần chọn một trong hai mô hình xử lý giọng nói dưới đây:
+
+| Kiến trúc | Phù hợp nhất cho | Lý do lựa chọn |
+| :--- | :--- | :--- |
+| **Speech-to-speech trực tiếp (Real-time Audio)** | Các cuộc hội thoại tự nhiên, cần phản hồi tức thì (< 100ms), hỗ trợ ngắt lời (barge-in). | Mô hình xử lý trực tiếp âm thanh nhị phân đầu vào và đầu ra mà không cần qua bước trung gian, tối ưu hóa độ trễ cực hạn. |
+| **Chained Voice Pipeline (Chuỗi xử lý tách biệt)** | Các quy trình có tính chất bắc cầu, cần phê duyệt trung gian, hoặc tái sử dụng Agent văn bản cũ. | Ứng dụng giữ quyền kiểm soát tuyệt đối ở từng giai đoạn: Chuyển giọng nói $\rightarrow$ Văn bản (STT) $\rightarrow$ Suy luận logic (Agent) $\rightarrow$ Phát âm thanh (TTS). |
+
+---
+
+## 2. Kiến trúc 1: Speech-to-speech thời gian thực (TypeScript)
+
+Sử dụng mô hình này cho giao diện chính của **ThôngDVC Extension** trên trình duyệt để tương tác trò chuyện tự nhiên với người cao tuổi.
+
+### Luồng xử lý trên Trình duyệt (Browser Workflow):
+1. **Server-side:** Sinh một khóa truy cập tạm thời (ephemeral client secret) cho phiên làm việc để đảm bảo bảo mật API Key gốc.
+2. **Frontend Extension:** Khởi tạo đối tượng `RealtimeSession`.
+3. **Transport Layer:** Kết nối trực tiếp qua **WebRTC** (trên trình duyệt khách) hoặc **WebSocket** (ở môi trường chạy thử node).
+4. **Execution:** Agent tự động xử lý các luồng thoại, công cụ (Tool Call), ngắt lời và chuyển giao phiên.
+
+### Ví dụ Lập trình (TypeScript):
+
+```typescript
+import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime";
+
+// 1. Khởi tạo Agent với các chỉ thị nghiệp vụ
+const agent = new RealtimeAgent({
+  name: "ThôngDVC Assistant",
+  instructions: "You are an accessibility voice assistant. Help elderly Vietnamese citizens fill out administrative forms.",
+});
+
+// 2. Tạo phiên làm việc thời gian thực
+const session = new RealtimeSession(agent, {
+  model: "gpt-realtime-2",
+});
+
+// 3. Kết nối sử dụng khóa tạm thời (ephemeral key) sinh ra từ Azure Server Gateway
+await session.connect({
+  apiKey: "ek_...(ephemeral key from your server)",
+});
+```
+
+*Để có cấu hình sâu hơn về tầng truyền tải, tham khảo:*
+*   [WebRTC Live Audio API](https://developers.openai.com/api/docs/guides/realtime-webrtc)
+*   [WebSocket Live Audio API](https://developers.openai.com/api/docs/guides/realtime-websocket)
+
+---
+
+## 3. Kiến trúc 2: Chained Voice Workflow (Python)
+
+Phù hợp cho backend xử lý dữ liệu phức tạp hoặc khi cần lưu trữ bản ghi (transcripts) văn bản trung gian để đối soát thông tin cá nhân (PII Protection Shield).
+
+### Quy trình xử lý:
+1. Nhận âm thanh đầu vào $\rightarrow$ Chuyển thành văn bản (STT).
+2. Kiểm tra/lọc thông tin cá nhân (Mã hóa PII nhạy cảm).
+3. Đưa vào luồng xử lý của Agent để sinh câu trả lời hoặc kích hoạt Tool.
+4. Chuyển đổi phản hồi văn bản thành giọng nói (TTS) sau khi đã giải mã thông tin thật.
+
+### Ví dụ Lập trình (Python):
+
+```python
+import asyncio
+import numpy as np
+
+from agents import Agent, function_tool
+from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
+
+
+@function_tool
+def get_administrative_status(document_id: str) -> str:
+    """Check the status of a government document application."""
+    # Simulate database lookup
+    return f"Ho so so {document_id} dang duoc can bo phuong ki duyet."
+
+
+# Định nghĩa Agent xử lý văn bản trung gian
+agent = Agent(
+    name="DVC_Agent",
+    instructions="You are a voice assistant handling administrative queries.",
+    model="gpt-5.5",
+    tools=[get_administrative_status],
+)
+
+
+async def main() -> None:
+    # Thiết lập pipeline chuỗi
+    pipeline = VoicePipeline(workflow=SingleAgentVoiceWorkflow(agent))
+    
+    # Giả lập buffer âm thanh đầu vào (3 giây)
+    audio_input = AudioInput(buffer=np.zeros(24000 * 3, dtype=np.int16))
+    
+    # Thực thi pipeline và truyền phát kết quả âm thanh đầu ra
+    result = await pipeline.run(audio_input)
+    async for event in result.stream():
+        if event.type == "voice_stream_event_audio":
+            print("Received audio bytes:", len(event.data))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+## 4. Các Khối Nghiệp vụ cốt lõi (Core Building Blocks)
+
+Dù sử dụng kiến trúc âm thanh nào, các nguyên tắc xây dựng Agent vẫn được giữ nguyên:
+
+*   **Sử dụng Tools:** Khai báo các hàm thao tác DOM (nhấp chuột, cuộn trang, điền giá trị) để Agent có thể gọi khi nhận diện câu lệnh thoại.
+*   **Orchestration & Handoffs:** Chuyển giao ngữ cảnh hội thoại linh hoạt giữa các Agent chuyên môn khi người dùng chuyển từ khai thủ tục "Đăng ký cư trú" sang "Cấp thẻ BHYT".
+*   **Bảo mật & Phê duyệt:** Tích hợp bộ lọc PII che dấu thông tin trước khi chuyển tiếp văn bản thoại lên các tầng LLM ngoài biên giới.
+
+
+---
+
+## File: docs/webrtc-realtime-integration.md
+
+# Hướng dẫn Tích hợp OpenAI Realtime API qua WebRTC
+
+Tài liệu này hướng dẫn cách kết nối trực tiếp trình duyệt (Chrome Extension) của **ThôngDVC** với OpenAI Realtime API thông qua giao thức **WebRTC**. WebRTC được khuyên dùng thay vì WebSockets để có độ trễ cực thấp (< 100ms) và hiệu năng ổn định hơn trên thiết bị di động/trình duyệt.
+
+---
+
+## 1. Hai Cơ chế Kết nối (Choose the Connection Path)
+
+OpenAI cung cấp 2 giao diện để kết nối WebRTC từ trình duyệt:
+
+| Giao diện kết nối | Luồng đi của dữ liệu | Ưu điểm | Nhược điểm |
+| :--- | :--- | :--- | :--- |
+| **Unified Interface** *(Khuyên Dùng)* | Trình duyệt gửi SDP $\rightarrow$ Server của bạn $\rightarrow$ OpenAI. | Đơn giản, Server kiểm soát cấu hình session trực tiếp ở mỗi lượt gọi. | Server nằm trong luồng xử lý SDP (critical path) lúc bắt tay. |
+| **Ephemeral Token** | Trình duyệt lấy Token tạm từ Server $\rightarrow$ Trình duyệt tự gọi thẳng OpenAI qua WebRTC. | Tách biệt hoàn toàn luồng SDP, giảm tải tối đa cho Server trung gian. | Phải quản lý vòng đời và quyền hạn của Token tạm (ephemeral key). |
+
+---
+
+## 2. Hướng dẫn Lập trình chi tiết (Implementation Guide)
+
+### Cơ chế 1: Kết nối bằng Unified Interface (Giao diện hợp nhất)
+
+#### Bước A: Backend Server (Node.js/Express)
+Server nhận gói SDP từ trình duyệt khách, bọc nó với cấu hình phiên (`sessionConfig`) và gửi lên OpenAI bằng API Key chính thức (được bảo mật trên server).
+
+```javascript
+import express from "express";
+
+const app = express();
+app.use(express.text({ type: ["application/sdp", "text/plain"] }));
+
+const sessionConfig = {
+  type: "realtime",
+  model: "gpt-realtime-2",
+  audio: { output: { voice: "marin" } }, // Giọng đọc phản hồi
+};
+
+app.post("/session", async (req, res) => {
+  const fd = new FormData();
+  fd.set("sdp", req.body); // SDP từ Extension gửi lên
+  fd.set("session", JSON.stringify(sessionConfig));
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/realtime/calls", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "OpenAI-Safety-Identifier": "hashed-user-id", // Mã bảo mật PII người dùng
+      },
+      body: fd,
+    });
+    
+    // Trả về SDP cấu hình từ OpenAI cho Client
+    const sdpAnswer = await response.text();
+    res.send(sdpAnswer);
+  } catch (error) {
+    console.error("Lỗi khởi tạo session:", error);
+    res.status(500).send("Failed to initialize WebRTC call");
+  }
+});
+
+app.listen(3000);
+```
+
+#### Bước B: Frontend Client (Chrome Extension)
+Extension thu âm từ Micro, tạo kết nối ngang hàng (Peer Connection), trao đổi SDP với server để thiết lập đường truyền.
+
+```javascript
+// 1. Tạo kết nối Peer Connection
+const pc = new RTCPeerConnection();
+
+// 2. Tự động phát âm thanh nhận về từ mô hình AI
+const audioElement = document.createElement("audio");
+audioElement.autoplay = true;
+pc.ontrack = (e) => {
+  audioElement.srcObject = e.streams[0]; // Nhận luồng âm thanh đầu ra
+};
+
+// 3. Thu âm từ Micro của người dùng và đưa vào WebRTC
+const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+pc.addTrack(localStream.getTracks()[0]);
+
+// 4. Tạo kênh dữ liệu (Data Channel) để gửi/nhận sự kiện JSON
+const dc = pc.createDataChannel("oai-events");
+
+// 5. Tạo Offer SDP và trao đổi với Backend Server của bạn
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+const response = await fetch("http://localhost:3000/session", {
+  method: "POST",
+  body: offer.sdp,
+  headers: { "Content-Type": "application/sdp" },
+});
+
+// 6. Nhận Answer SDP từ server và kích hoạt WebRTC call
+const answer = {
+  type: "answer",
+  sdp: await response.text(),
+};
+await pc.setRemoteDescription(answer);
+```
+
+---
+
+### Cơ chế 2: Kết nối bằng Ephemeral Token (Khóa tạm thời)
+
+#### Bước A: Backend cấp Token tạm
+Server gọi OpenAI API để xin một khóa client secret ngắn hạn (chỉ có giá trị trong phiên đó) và trả về cho Client.
+
+```javascript
+app.get("/token", async (req, res) => {
+  try {
+    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+        "OpenAI-Safety-Identifier": "hashed-user-id", // Mã hóa an toàn danh tính
+      },
+      body: JSON.stringify({
+        session: {
+          type: "realtime",
+          model: "gpt-realtime-2",
+        }
+      }),
+    });
+    const data = await response.json();
+    res.json(data); // Trả về { client_secret: { value: "ek_..." } }
+  } catch (error) {
+    res.status(500).json({ error: "Failed to mint token" });
+  }
+});
+```
+
+#### Bước B: Client gọi thẳng OpenAI WebRTC
+Client lấy Token tạm, sau đó gửi trực tiếp SDP lên endpoint của OpenAI mà không cần thông qua server của bạn cho bước bắt tay SDP này.
+
+```javascript
+// 1. Lấy token tạm từ server của bạn
+const tokenRes = await fetch("/token");
+const tokenData = await tokenRes.json();
+const EPHEMERAL_KEY = tokenData.client_secret.value;
+
+// 2. Khởi tạo RTCPeerConnection & Add local media track (giống hệt cơ chế 1)
+const pc = new RTCPeerConnection();
+// ... (lắp Micro và thẻ Audio tương tự đoạn code cơ chế 1)
+
+// 3. Tạo offer SDP
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+// 4. Gửi trực tiếp SDP lên OpenAI bằng Ephemeral Key
+const response = await fetch("https://api.openai.com/v1/realtime/calls", {
+  method: "POST",
+  body: offer.sdp,
+  headers: {
+    Authorization: `Bearer ${EPHEMERAL_KEY}`,
+    "Content-Type": "application/sdp",
+  },
+});
+
+const answer = {
+  type: "answer",
+  sdp: await response.text(),
+};
+await pc.setRemoteDescription(answer);
+```
+
+---
+
+## 3. Gửi và Nhận Sự kiện phi âm thanh (Data Channels)
+
+Ưu điểm lớn nhất của WebRTC là bạn **không cần viết code xử lý truyền/nhận âm thanh nhị phân phức tạp**. WebRTC tự động xử lý truyền tải âm thanh qua RTP.
+
+Để truyền tải các sự kiện khác (ví dụ: gửi tin nhắn văn bản, cập nhật cấu hình, nhận tín hiệu gọi Tool thực thi JS để điền DOM), ta sử dụng **Data Channel** tên `"oai-events"` đã khởi tạo ở trên:
+
+### Lắng nghe sự kiện từ OpenAI (Server-sent Events):
+```javascript
+dc.addEventListener("message", (e) => {
+  const event = JSON.parse(e.data);
+  console.log("Nhận sự kiện từ server:", event);
+  
+  // Ví dụ: Phát hiện lệnh gọi công cụ điền DOM (Tool Call)
+  if (event.type === "response.function_call_arguments.done") {
+    const { name, arguments: args } = event;
+    console.log(`AI yêu cầu gọi hàm: ${name} với tham số:`, args);
+    // Thực thi JS điền form ở local browser...
+  }
+});
+```
+
+### Gửi sự kiện từ Extension lên OpenAI (Client-sent Events):
+```javascript
+const textEvent = {
+  type: "conversation.item.create",
+  item: {
+    type: "message",
+    role: "user",
+    content: [
+      {
+        type: "input_text",
+        text: "Hãy điền giúp tôi mẫu đăng ký cư trú này",
+      },
+    ],
+  },
+};
+dc.send(JSON.stringify(textEvent));
+```
+
+
+---
+
