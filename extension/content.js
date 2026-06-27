@@ -190,14 +190,17 @@ function injectShadowUI({ html, mount, mode }) {
   if (!host) {
     host = document.createElement("div");
     host.id = mount;
-    Object.assign(host.style, {
-      position: "fixed",
-      bottom: "20px",
-      right: "20px",
-      zIndex: "2147483647",
-    });
     document.body.appendChild(host);
   }
+  const isChecklist = mount === "accessibility-assistant-panel";
+  Object.assign(host.style, {
+    position: "fixed",
+    top: isChecklist ? "16px" : "",
+    right: "16px",
+    bottom: isChecklist ? "" : "20px",
+    zIndex: "2147483646",
+    maxWidth: isChecklist ? "360px" : "",
+  });
 
   let container = host;
   if (mode === "shadow-root") {
@@ -205,7 +208,21 @@ function injectShadowUI({ html, mount, mode }) {
   }
 
   container.innerHTML = sanitizeHTML(html);
+  if (mount === "accessibility-assistant-panel") {
+    setupChecklistControls(host, container);
+  }
   return { status: "success", ui_id: "ui_checklist_active" };
+}
+
+function setupChecklistControls(host, container) {
+  const toggleBtn = container.getElementById?.("toggle-checklist") || container.querySelector?.("#toggle-checklist");
+  const closeBtn = container.getElementById?.("close-checklist") || container.querySelector?.("#close-checklist");
+  toggleBtn?.addEventListener("click", () => {
+    const collapsed = host.getAttribute("data-collapsed") === "true";
+    host.setAttribute("data-collapsed", collapsed ? "false" : "true");
+    toggleBtn.textContent = collapsed ? "-" : "+";
+  });
+  closeBtn?.addEventListener("click", () => host.remove());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -482,7 +499,11 @@ function navigateToLogin(selector) {
   }
 
   const origin = window.location.origin;
-  window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+  if (origin.includes("dichvucong.gdt.gov.vn")) {
+    window.location.href = origin + "/tthc/login";
+  } else {
+    window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+  }
   return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
 }
 
@@ -964,21 +985,50 @@ function buildChecklistHTML(steps) {
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 16px;
       }
+      :host([data-collapsed="true"]) .body { display: none; }
+      :host([data-collapsed="true"]) .panel { min-width: 0; width: auto; }
       .panel {
         background: #1e293b;
         color: #f8fafc;
-        border-radius: 12px;
-        padding: 16px 20px;
-        min-width: 260px;
+        border-radius: 10px;
+        min-width: 300px;
+        max-width: min(360px, calc(100vw - 32px));
         box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        background: rgba(15, 23, 42, 0.55);
       }
       h3 {
-        margin: 0 0 12px;
+        margin: 0;
         font-size: 14px;
         color: #94a3b8;
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
+      .controls {
+        display: flex;
+        gap: 6px;
+      }
+      button {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.75);
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+      }
+      button:hover { background: rgba(51, 65, 85, 0.95); }
+      .body { padding: 8px 18px 14px; }
       ul {
         list-style: none;
         padding: 0;
@@ -998,8 +1048,14 @@ function buildChecklistHTML(steps) {
       .icon { font-size: 18px; flex-shrink: 0; }
     </style>
     <div class="panel">
-      <h3>📋 Hướng dẫn điền form</h3>
-      <ul>${stepItems}</ul>
+      <div class="header">
+        <h3>📋 Hướng dẫn</h3>
+        <div class="controls">
+          <button id="toggle-checklist" type="button" title="Thu gọn/mở rộng">−</button>
+          <button id="close-checklist" type="button" title="Đóng">×</button>
+        </div>
+      </div>
+      <div class="body"><ul>${stepItems}</ul></div>
     </div>
   `;
 }

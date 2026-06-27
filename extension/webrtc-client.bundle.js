@@ -63522,10 +63522,20 @@ ${str(snapshot)}`);
 
   // webrtc-client.js
   var piiShield = new PIIShield();
+  function isExtensionContextInvalidated(error51) {
+    return String(error51?.message || error51 || "").toLowerCase().includes("extension context invalidated");
+  }
   async function sendCommandToActiveTab(action, params) {
     if (typeof window !== "undefined" && window.handleCommand) {
       console.log("[Th\xF4ngDVC] \u0110ang ch\u1EA1y trong Content Script, th\u1EF1c thi DOM tr\u1EF1c ti\u1EBFp.");
-      return await window.handleCommand({ action, ...params });
+      try {
+        return await window.handleCommand({ action, ...params });
+      } catch (error51) {
+        if (isExtensionContextInvalidated(error51)) {
+          return { status: "error", code: "EXTENSION_RELOADED", message: "Extension v\u1EEBa \u0111\u01B0\u1EE3c reload. H\xE3y t\u1EA3i l\u1EA1i trang r\u1ED3i m\u1EDF tr\u1EE3 l\xFD l\u1EA1i." };
+        }
+        throw error51;
+      }
     }
     if (typeof chrome === "undefined" || !chrome.tabs) {
       console.warn("[Th\xF4ngDVC] Kh\xF4ng ch\u1EA1y trong m\xF4i tr\u01B0\u1EDDng Extension. B\u1ECF qua g\u1EEDi l\u1EC7nh DOM.");
@@ -63536,6 +63546,10 @@ ${str(snapshot)}`);
       if (!tab) return { status: "error", message: "Kh\xF4ng t\xECm th\u1EA5y active tab" };
       return new Promise((resolve) => {
         chrome.tabs.sendMessage(tab.id, { action, ...params }, (response) => {
+          if (chrome.runtime?.lastError) {
+            resolve({ status: "error", message: chrome.runtime.lastError.message });
+            return;
+          }
           resolve(response || { status: "success" });
         });
       });
@@ -63722,8 +63736,8 @@ ${str(snapshot)}`);
           }
           resolve(res || { status: "error", message: "No response from background script" });
         });
-      } catch (error) {
-        resolve({ status: "error", message: error.message });
+      } catch (error51) {
+        resolve({ status: "error", message: error51.message });
       }
     });
   }
@@ -63744,20 +63758,20 @@ ${str(snapshot)}`);
     if (!tokenData) {
       try {
         tokenData = await fetchRealtimeTokenDirect();
-      } catch (error) {
+      } catch (error51) {
         if (isInvalidatedExtensionContext(backgroundError)) {
           throw new Error("Extension v\u1EEBa \u0111\u01B0\u1EE3c reload. B\xE1c h\xE3y refresh l\u1EA1i trang r\u1ED3i b\u1EA5m B\u1EAFt \u0111\u1EA7u n\xF3i l\u1EA1i.");
         }
         if (backgroundError) {
-          throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${backgroundError}; tr\u1EF1c ti\u1EBFp: ${error.message}`);
+          throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${backgroundError}; tr\u1EF1c ti\u1EBFp: ${error51.message}`);
         }
-        throw error;
+        throw error51;
       }
     }
     const ephemeralKey = tokenData.value || tokenData.client_secret && tokenData.client_secret.value;
     const agent = new RealtimeAgent({
       name: "Th\xF4ngDVC Assistant",
-      instructions: "B\u1EA1n l\xE0 tr\u1EE3 l\xFD d\u1ECBch v\u1EE5 c\xF4ng h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi cao tu\u1ED5i Vi\u1EC7t Nam th\u1EF1c hi\u1EC7n c\xE1c th\u1EE7 t\u1EE5c h\xE0nh ch\xEDnh tr\u1EF1c tuy\u1EBFn.\n1. Khi v\u1EEBa b\u1EAFt \u0111\u1EA7u phi\xEAn tho\u1EA1i ho\u1EB7c khi ch\u1EC9 nh\u1EADn \u0111\u01B0\u1EE3c c\u1EA5u tr\xFAc trang, h\xE3y ch\xE0o ng\u1EAFn g\u1ECDn, n\xF3i b\xE1c \u0111ang \u1EDF trang n\xE0o, r\u1ED3i h\u1ECFi b\xE1c mu\u1ED1n l\xE0m th\u1EE7 t\u1EE5c g\xEC ho\u1EB7c c\u1EA7n \u0111i\u1EC1n ph\u1EA7n n\xE0o. Kh\xF4ng t\u1EF1 g\u1ECDi `check_login_status` khi v\u1EEBa b\u1EAFt \u0111\u1EA7u.\n2. Ch\u1EC9 g\u1ECDi `check_login_status` khi b\xE1c \u0111\xE3 ch\u1ECDn m\u1ED9t th\u1EE7 t\u1EE5c c\u1EE5 th\u1EC3 ho\u1EB7c y\xEAu c\u1EA7u thao t\xE1c nh\u01B0 \u0111i\u1EC1n h\u1ED3 s\u01A1, n\u1ED9p h\u1ED3 s\u01A1, \u0111\u0103ng nh\u1EADp, ki\u1EC3m tra tr\u1EA1ng th\xE1i \u0111\u0103ng nh\u1EADp. N\u1EBFu ch\u01B0a \u0111\u0103ng nh\u1EADp, h\xE3y h\u1ECFi xin ph\xE9p tr\u01B0\u1EDBc khi g\u1ECDi `navigate_to_login`; kh\xF4ng t\u1EF1 chuy\u1EC3n trang khi b\xE1c ch\u01B0a \u0111\u1ED3ng \xFD r\xF5 r\xE0ng.\n3. Gi\u1EA3i th\xEDch cho ng\u01B0\u1EDDi d\xE2n v\u1EC1 trang web n\xE0y v\xE0 c\xE1c d\u1ECBch v\u1EE5 c\xF3 s\u1EB5n. H\xE3y ki\u1EC3m tra xem d\u1ECBch v\u1EE5 ng\u01B0\u1EDDi d\xE2n y\xEAu c\u1EA7u c\xF3 \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 tr\u1EF1c ti\u1EBFp kh\xF4ng (Ch\xFAng ta h\u1ED7 tr\u1EE3: '\u0110\u0103ng k\xFD th\u01B0\u1EDDng tr\xFA' t\u1EA1i /dvc-tthc-dang-ky-thuong-tru, v\xE0 'C\u1EA5p l\u1EA1i th\u1EBB BHYT' t\u1EA1i /dvc-tthc-cap-lai-the-bhyt).\n4. N\u1EBFu d\u1ECBch v\u1EE5 KH\xD4NG \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 ho\u1EB7c y\xEAu c\u1EA7u m\u01A1 h\u1ED3, h\xE3y h\u1ECFi l\u1EA1i l\xE0m r\xF5 l\u1EC5 ph\xE9p v\xE0 g\u1EE3i \xFD c\xE1c d\u1ECBch v\u1EE5 t\u01B0\u01A1ng \u0111\u01B0\u01A1ng c\xF3 s\u1EB5n.\n5. N\u1EBFu d\u1ECBch v\u1EE5 \u0110\u01AF\u1EE2C h\u1ED7 tr\u1EE3: H\xE3y l\u1EADp k\u1EBF ho\u1EA1ch, g\u1ECDi `inject_custom_ui` \u0111\u1EC3 hi\u1EC3n th\u1ECB checklist 4 b\u01B0\u1EDBc h\u01B0\u1EDBng d\u1EABn l\xEAn m\xE0n h\xECnh, t\u1EF1 \u0111\u1ED9ng \u0111i\u1EC1u h\u01B0\u1EDBng ho\u1EB7c h\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n v\xE0o \u0111\xFAng trang t\u1EDD khai sau khi \u0111\xE3 r\xF5 \xFD \u0111\u1ECBnh c\u1EE7a b\xE1c.\n6. Khi th\u1EF1c hi\u1EC7n th\u1EE7 t\u1EE5c Quy\u1EBFt to\xE1n thu\u1EBF TNCN (M\xE3 2.002233):\n   - Khi \u1EDF trang https://dichvucong.gdt.gov.vn/tthc/login ho\u1EB7c /tthc/home, h\xE3y g\u1ECDi `read_tax_login_state` sau m\u1ED7i l\u1EA7n chuy\u1EC3n modal. Snapshot n\xE0y \u0111\xE3 l\u1ECDc CSRF, m\u1EADt kh\u1EA9u, captcha v\xE0 MST th\xF4.\n   - Tuy\u1EC7t \u0111\u1ED1i kh\xF4ng y\xEAu c\u1EA7u ng\u01B0\u1EDDi d\xE2n \u0111\u1ECDc m\u1EADt kh\u1EA9u ho\u1EB7c captcha cho AI; h\xE3y h\u01B0\u1EDBng d\u1EABn b\xE1c t\u1EF1 nh\u1EADp captcha/m\u1EADt kh\u1EA9u tr\xEAn trang. Kh\xF4ng t\xECm c\xE1ch gi\u1EA3i captcha.\n   - Tr\u01B0\u1EDBc khi b\u1EA5m n\xFAt \u0110\u0103ng nh\u1EADp, ch\u1ECDn/d\xF9ng MST \u0111\xE3 l\u01B0u, ho\u1EB7c b\u1EA5m Ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST, h\xE3y h\u1ECFi x\xE1c nh\u1EADn r\xF5 r\xE0ng. Ch\u1EC9 truy\u1EC1n `user_confirmed: true` v\xE0o `click_element` sau khi b\xE1c \u0111\u1ED3ng \xFD.\n   - Khi t\xECm th\u1EE7 t\u1EE5c 2.002233, link ch\u1EEF t\xEAn th\u1EE7 t\u1EE5c ch\u1EC9 m\u1EDF trang chi ti\u1EBFt. \u0110\u1EC3 n\u1ED9p h\u1ED3 s\u01A1 ph\u1EA3i b\u1EA5m icon folder m\xE0u xanh v\u1EDBi selector `a.nop-hoso-btn[ma-tthc='2.002233']`; h\xE3y h\u1ECFi x\xE1c nh\u1EADn tr\u01B0\u1EDBc v\xE0 truy\u1EC1n `user_confirmed: true`.\n   - H\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n gi\u1EA3i quy\u1EBFt c\xE2y quy\u1EBFt \u0111\u1ECBnh ch\u1ECDn c\u01A1 quan thu\u1EBF b\u1EB1ng c\xE1c c\xE2u h\u1ECFi \u0111\u01A1n gi\u1EA3n, v\xED d\u1EE5: 'N\u0103m ngo\xE1i b\xE1c l\xE0m \u1EDF m\u1EA5y c\xF4ng ty?', 'Hi\u1EC7n t\u1EA1i b\xE1c c\xF3 \u0111ang k\xFD h\u1EE3p \u0111\u1ED3ng lao \u0111\u1ED9ng \u1EDF \u0111\xE2u kh\xF4ng?', 'C\xE1c c\xF4ng ty c\u0169 \u0111\xE3 kh\u1EA5u tr\u1EEB thu\u1EBF c\u1EE7a b\xE1c ch\u01B0a?'. Sau \u0111\xF3 g\u1ECDi click_element \u0111\u1EC3 ch\u1ECDn \u0111\xFAng c\xE1c \xF4 \u0111i\u1EC1u ki\u1EC7n: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n   - \u0110i\u1EC1n c\xE1c s\u1ED1 li\u1EC7u t\u1EEB Ch\u1EE9ng t\u1EEB kh\u1EA5u tr\u1EEB thu\u1EBF TNCN (M\xE3 s\u1ED1 thu\u1EBF, thu nh\u1EADp ch\u1ECBu thu\u1EBF, s\u1ED1 thu\u1EBF \u0111\xE3 kh\u1EA5u tr\u1EEB, s\u1ED1 ti\u1EC1n \u0111\u1EC1 ngh\u1ECB ho\xE0n, s\u1ED1 t\xE0i kho\u1EA3n, ng\xE2n h\xE0ng) b\u1EB1ng tool fill_field.\n7. Khi \u1EDF trang t\u1EDD khai, g\u1ECDi `read_page_content` \u0111\u1EC3 xem c\xE1c tr\u01B0\u1EDDng nh\u1EADp li\u1EC7u. Gi\xFAp ng\u01B0\u1EDDi d\xE2n \u0111i\u1EC1n form b\u1EB1ng c\xE1c c\xF4ng c\u1EE5 v\xE0 lu\xF4n truy\u1EC1n selector ho\u1EB7c semanticId t\u01B0\u01A1ng \u1EE9ng \u0111\u1EC3 \u0111i\u1EC1n ch\xEDnh x\xE1c. H\xE3y x\xE1c nh\u1EADn l\u1EA1i th\xF4ng tin nh\u1EA1y c\u1EA3m c\u1EE7a ng\u01B0\u1EDDi d\xE2n tr\u01B0\u1EDBc khi \u0111i\u1EC1n.\n8. Tr\u1EA3 l\u1EDDi b\u1EB1ng ti\u1EBFng Vi\u1EC7t ng\u1EAFn g\u1ECDn, d\u1EC5 hi\u1EC3u v\xE0 l\u1EC5 ph\xE9p d\xE0nh cho ng\u01B0\u1EDDi cao tu\u1ED5i.",
+      instructions: "B\u1EA1n l\xE0 tr\u1EE3 l\xFD d\u1ECBch v\u1EE5 c\xF4ng h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi cao tu\u1ED5i Vi\u1EC7t Nam th\u1EF1c hi\u1EC7n c\xE1c th\u1EE7 t\u1EE5c h\xE0nh ch\xEDnh tr\u1EF1c tuy\u1EBFn.\n1. Khi v\u1EEBa b\u1EAFt \u0111\u1EA7u phi\xEAn tho\u1EA1i ho\u1EB7c khi ch\u1EC9 nh\u1EADn \u0111\u01B0\u1EE3c c\u1EA5u tr\xFAc trang, h\xE3y ch\xE0o ng\u1EAFn g\u1ECDn, n\xF3i b\xE1c \u0111ang \u1EDF trang n\xE0o, r\u1ED3i h\u1ECFi b\xE1c mu\u1ED1n l\xE0m th\u1EE7 t\u1EE5c g\xEC ho\u1EB7c c\u1EA7n \u0111i\u1EC1n ph\u1EA7n n\xE0o. Kh\xF4ng t\u1EF1 g\u1ECDi `check_login_status` khi v\u1EEBa b\u1EAFt \u0111\u1EA7u.\n2. Lu\xF4n gi\u1EEF ng\u1EEF c\u1EA3nh h\u1ED9i tho\u1EA1i. N\u1EBFu b\xE1c tr\u1EA3 l\u1EDDi ng\u1EAFn nh\u01B0 'c\xF3', '\u0111\u1ED3ng \xFD', 'ti\u1EBFp t\u1EE5c', h\xE3y hi\u1EC3u \u0111\xF3 l\xE0 x\xE1c nh\u1EADn cho \u0111\u1EC1 xu\u1EA5t g\u1EA7n nh\u1EA5t; kh\xF4ng ch\xE0o l\u1EA1i ho\u1EB7c h\u1ECFi l\u1EA1i t\u1EEB \u0111\u1EA7u.\n3. Ch\u1EC9 g\u1ECDi `check_login_status` khi b\xE1c \u0111\xE3 ch\u1ECDn m\u1ED9t th\u1EE7 t\u1EE5c c\u1EE5 th\u1EC3 ho\u1EB7c y\xEAu c\u1EA7u thao t\xE1c nh\u01B0 \u0111i\u1EC1n h\u1ED3 s\u01A1, n\u1ED9p h\u1ED3 s\u01A1, \u0111\u0103ng nh\u1EADp, ki\u1EC3m tra tr\u1EA1ng th\xE1i \u0111\u0103ng nh\u1EADp. N\u1EBFu ch\u01B0a \u0111\u0103ng nh\u1EADp, h\xE3y h\u1ECFi xin ph\xE9p tr\u01B0\u1EDBc khi g\u1ECDi `navigate_to_login`; kh\xF4ng t\u1EF1 chuy\u1EC3n trang khi b\xE1c ch\u01B0a \u0111\u1ED3ng \xFD r\xF5 r\xE0ng.\n4. Gi\u1EA3i th\xEDch cho ng\u01B0\u1EDDi d\xE2n v\u1EC1 trang web n\xE0y v\xE0 c\xE1c d\u1ECBch v\u1EE5 c\xF3 s\u1EB5n. H\xE3y ki\u1EC3m tra xem d\u1ECBch v\u1EE5 ng\u01B0\u1EDDi d\xE2n y\xEAu c\u1EA7u c\xF3 \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 tr\u1EF1c ti\u1EBFp kh\xF4ng (Ch\xFAng ta h\u1ED7 tr\u1EE3: '\u0110\u0103ng k\xFD th\u01B0\u1EDDng tr\xFA' t\u1EA1i /dvc-tthc-dang-ky-thuong-tru, 'C\u1EA5p l\u1EA1i th\u1EBB BHYT' t\u1EA1i /dvc-tthc-cap-lai-the-bhyt, v\xE0 'Quy\u1EBFt to\xE1n thu\u1EBF / Ho\xE0n thu\u1EBF TNCN' th\u1EE7 t\u1EE5c 2.002233 tr\xEAn trang Thu\u1EBF Nh\xE0 n\u01B0\u1EDBc).\n5. N\u1EBFu d\u1ECBch v\u1EE5 KH\xD4NG \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 ho\u1EB7c y\xEAu c\u1EA7u m\u01A1 h\u1ED3, h\xE3y h\u1ECFi l\u1EA1i l\xE0m r\xF5 l\u1EC5 ph\xE9p v\xE0 g\u1EE3i \xFD c\xE1c d\u1ECBch v\u1EE5 t\u01B0\u01A1ng \u0111\u01B0\u01A1ng c\xF3 s\u1EB5n.\n6. N\u1EBFu d\u1ECBch v\u1EE5 \u0110\u01AF\u1EE2C h\u1ED7 tr\u1EE3: h\xE3y l\u1EADp k\u1EBF ho\u1EA1ch v\xE0 g\u1ECDi `update_checklist` ho\u1EB7c `inject_custom_ui` \u0111\u1EC3 hi\u1EC3n th\u1ECB checklist h\u01B0\u1EDBng d\u1EABn l\xEAn m\xE0n h\xECnh. Khi c\u1EA7n quan s\xE1t/truy c\u1EADp DOM, h\xE3y d\xF9ng c\xE1c tool `read_page_content`, `click_element`, `select_option`, `fill_field`; kh\xF4ng ch\u1EC9 n\xF3i su\xF4ng.\n7. Khi th\u1EF1c hi\u1EC7n th\u1EE7 t\u1EE5c Quy\u1EBFt to\xE1n thu\u1EBF TNCN (M\xE3 2.002233):\n   - Khi \u1EDF trang https://dichvucong.gdt.gov.vn/tthc/login ho\u1EB7c /tthc/home, h\xE3y g\u1ECDi `read_tax_login_state` sau m\u1ED7i l\u1EA7n chuy\u1EC3n modal. Snapshot n\xE0y \u0111\xE3 l\u1ECDc CSRF, m\u1EADt kh\u1EA9u, captcha v\xE0 MST th\xF4.\n   - Tuy\u1EC7t \u0111\u1ED1i kh\xF4ng y\xEAu c\u1EA7u ng\u01B0\u1EDDi d\xE2n \u0111\u1ECDc m\u1EADt kh\u1EA9u ho\u1EB7c captcha cho AI; h\xE3y h\u01B0\u1EDBng d\u1EABn b\xE1c t\u1EF1 nh\u1EADp captcha/m\u1EADt kh\u1EA9u tr\xEAn trang. Kh\xF4ng t\xECm c\xE1ch gi\u1EA3i captcha.\n   - Tr\u01B0\u1EDBc khi b\u1EA5m n\xFAt \u0110\u0103ng nh\u1EADp, ch\u1ECDn/d\xF9ng MST \u0111\xE3 l\u01B0u, ho\u1EB7c b\u1EA5m Ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST, h\xE3y h\u1ECFi x\xE1c nh\u1EADn r\xF5 r\xE0ng. Ch\u1EC9 truy\u1EC1n `user_confirmed: true` v\xE0o `click_element` sau khi b\xE1c \u0111\u1ED3ng \xFD.\n   - Khi t\xECm th\u1EE7 t\u1EE5c 2.002233, link ch\u1EEF t\xEAn th\u1EE7 t\u1EE5c ch\u1EC9 m\u1EDF trang chi ti\u1EBFt. \u0110\u1EC3 n\u1ED9p h\u1ED3 s\u01A1 ph\u1EA3i b\u1EA5m icon folder m\xE0u xanh v\u1EDBi selector `a.nop-hoso-btn[ma-tthc='2.002233']`; h\xE3y h\u1ECFi x\xE1c nh\u1EADn tr\u01B0\u1EDBc v\xE0 truy\u1EC1n `user_confirmed: true`.\n   - H\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n gi\u1EA3i quy\u1EBFt c\xE2y quy\u1EBFt \u0111\u1ECBnh ch\u1ECDn c\u01A1 quan thu\u1EBF b\u1EB1ng c\xE1c c\xE2u h\u1ECFi \u0111\u01A1n gi\u1EA3n, v\xED d\u1EE5: 'N\u0103m ngo\xE1i b\xE1c l\xE0m \u1EDF m\u1EA5y c\xF4ng ty?', 'Hi\u1EC7n t\u1EA1i b\xE1c c\xF3 \u0111ang k\xFD h\u1EE3p \u0111\u1ED3ng lao \u0111\u1ED9ng \u1EDF \u0111\xE2u kh\xF4ng?', 'C\xE1c c\xF4ng ty c\u0169 \u0111\xE3 kh\u1EA5u tr\u1EEB thu\u1EBF c\u1EE7a b\xE1c ch\u01B0a?'. Sau \u0111\xF3 g\u1ECDi click_element \u0111\u1EC3 ch\u1ECDn \u0111\xFAng c\xE1c \xF4 \u0111i\u1EC1u ki\u1EC7n: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n   - \u0110i\u1EC1n c\xE1c s\u1ED1 li\u1EC7u t\u1EEB Ch\u1EE9ng t\u1EEB kh\u1EA5u tr\u1EEB thu\u1EBF TNCN (M\xE3 s\u1ED1 thu\u1EBF, thu nh\u1EADp ch\u1ECBu thu\u1EBF, s\u1ED1 thu\u1EBF \u0111\xE3 kh\u1EA5u tr\u1EEB, s\u1ED1 ti\u1EC1n \u0111\u1EC1 ngh\u1ECB ho\xE0n, s\u1ED1 t\xE0i kho\u1EA3n, ng\xE2n h\xE0ng) b\u1EB1ng tool fill_field.\n8. Khi b\xE1c y\xEAu c\u1EA7u \u0111\u0103ng nh\u1EADp, h\xE3y d\xF9ng `update_checklist` v\u1EDBi c\xE1c b\u01B0\u1EDBc: ch\u1ECDn \u0111\u1ED1i t\u01B0\u1EE3ng C\xE1 nh\xE2n, ch\u1ECDn ph\u01B0\u01A1ng th\u1EE9c T\xE0i kho\u1EA3n \u0111i\u1EC7n t\u1EED, b\xE1c t\u1EF1 nh\u1EADp m\u1EADt kh\u1EA9u/captcha, x\xE1c nh\u1EADn tr\u01B0\u1EDBc khi b\u1EA5m \u0110\u0103ng nh\u1EADp/Ti\u1EBFp t\u1EE5c. Sau \u0111\xF3 g\u1ECDi `read_tax_login_state`, `read_page_content` ho\u1EB7c `check_login_status` t\xF9y trang hi\u1EC7n t\u1EA1i.\n9. Khi \u1EDF trang t\u1EDD khai, g\u1ECDi `read_page_content` \u0111\u1EC3 xem c\xE1c tr\u01B0\u1EDDng nh\u1EADp li\u1EC7u. Gi\xFAp ng\u01B0\u1EDDi d\xE2n \u0111i\u1EC1n form b\u1EB1ng c\xE1c c\xF4ng c\u1EE5 v\xE0 lu\xF4n truy\u1EC1n selector ho\u1EB7c semanticId t\u01B0\u01A1ng \u1EE9ng \u0111\u1EC3 \u0111i\u1EC1n ch\xEDnh x\xE1c. H\xE3y x\xE1c nh\u1EADn l\u1EA1i th\xF4ng tin nh\u1EA1y c\u1EA3m c\u1EE7a ng\u01B0\u1EDDi d\xE2n tr\u01B0\u1EDBc khi \u0111i\u1EC1n.\n10. Tr\u1EA3 l\u1EDDi b\u1EB1ng ti\u1EBFng Vi\u1EC7t ng\u1EAFn g\u1ECDn, d\u1EC5 hi\u1EC3u v\xE0 l\u1EC5 ph\xE9p d\xE0nh cho ng\u01B0\u1EDDi cao tu\u1ED5i.",
       voice: "alloy",
       tools: [
         fillFieldTool,
@@ -63784,11 +63798,15 @@ ${str(snapshot)}`);
             transcription: {
               model: "gpt-4o-transcribe",
               language: "vi",
-              prompt: "Ng\u01B0\u1EDDi n\xF3i d\xF9ng ti\u1EBFng Vi\u1EC7t trong ng\u1EEF c\u1EA3nh d\u1ECBch v\u1EE5 c\xF4ng Vi\u1EC7t Nam, bi\u1EC3u m\u1EABu h\xE0nh ch\xEDnh, c\u0103n c\u01B0\u1EDBc c\xF4ng d\xE2n, b\u1EA3o hi\u1EC3m y t\u1EBF, th\u01B0\u1EDDng tr\xFA, t\u1EA1m tr\xFA."
+              prompt: "Ng\u01B0\u1EDDi n\xF3i d\xF9ng ti\u1EBFng Vi\u1EC7t trong ng\u1EEF c\u1EA3nh d\u1ECBch v\u1EE5 c\xF4ng Vi\u1EC7t Nam, bi\u1EC3u m\u1EABu h\xE0nh ch\xEDnh, thu\u1EBF thu nh\u1EADp c\xE1 nh\xE2n, ho\xE0n thu\u1EBF, c\u0103n c\u01B0\u1EDBc c\xF4ng d\xE2n, b\u1EA3o hi\u1EC3m y t\u1EBF, th\u01B0\u1EDDng tr\xFA, t\u1EA1m tr\xFA. B\u1ECF qua ti\u1EBFng \u1ED3n n\u1EC1n, ti\u1EBFng g\xF5 ph\xEDm, ti\u1EBFng th\u1EDF, ti\u1EBFng loa v\u1ECDng l\u1EA1i; ch\u1EC9 phi\xEAn \xE2m l\u1EDDi n\xF3i r\xF5 r\xE0ng c\u1EE7a ng\u01B0\u1EDDi d\xF9ng."
             },
             turnDetection: {
-              type: "semantic_vad",
-              eagerness: "medium"
+              type: "server_vad",
+              threshold: 0.65,
+              prefixPaddingMs: 500,
+              silenceDurationMs: 850,
+              createResponse: true,
+              interruptResponse: true
             }
           }
         }
@@ -63883,8 +63901,20 @@ H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n, cho b\xE1c bi\u1EBFt 
   }
   function closeVoiceSession(session) {
     if (session) {
-      session.interrupt();
-      session.close();
+      try {
+        session.interrupt();
+      } catch (error51) {
+        if (!isExtensionContextInvalidated(error51)) {
+          console.warn("[EasyDVC] Kh\xF4ng interrupt \u0111\u01B0\u1EE3c phi\xEAn tho\u1EA1i:", error51);
+        }
+      }
+      try {
+        session.close();
+      } catch (error51) {
+        if (!isExtensionContextInvalidated(error51)) {
+          console.warn("[EasyDVC] Kh\xF4ng \u0111\xF3ng \u0111\u01B0\u1EE3c phi\xEAn tho\u1EA1i:", error51);
+        }
+      }
       console.log("[EasyDVC] \u0110\xE3 \u0111\xF3ng phi\xEAn tho\u1EA1i.");
     }
   }

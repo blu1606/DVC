@@ -11,6 +11,10 @@ import { PIIShield } from "./pii-shield.js";
 
 const piiShield = new PIIShield();
 
+function isExtensionContextInvalidated(error) {
+  return String(error?.message || error || "").toLowerCase().includes("extension context invalidated");
+}
+
 /**
  * Gửi lệnh DOM đến content script của Active Tab.
  */
@@ -18,7 +22,14 @@ async function sendCommandToActiveTab(action, params) {
   // Nếu đang chạy trong content script của trang web, gọi trực tiếp handleCommand
   if (typeof window !== "undefined" && window.handleCommand) {
     console.log("[ThôngDVC] Đang chạy trong Content Script, thực thi DOM trực tiếp.");
-    return await window.handleCommand({ action, ...params });
+    try {
+      return await window.handleCommand({ action, ...params });
+    } catch (error) {
+      if (isExtensionContextInvalidated(error)) {
+        return { status: "error", code: "EXTENSION_RELOADED", message: "Extension vừa được reload. Hãy tải lại trang rồi mở trợ lý lại." };
+      }
+      throw error;
+    }
   }
 
   if (typeof chrome === "undefined" || !chrome.tabs) {
@@ -32,6 +43,10 @@ async function sendCommandToActiveTab(action, params) {
 
     return new Promise((resolve) => {
       chrome.tabs.sendMessage(tab.id, { action, ...params }, (response) => {
+        if (chrome.runtime?.lastError) {
+          resolve({ status: "error", message: chrome.runtime.lastError.message });
+          return;
+        }
         resolve(response || { status: "success" });
       });
     });
@@ -293,19 +308,21 @@ export async function initializeVoiceAssistant(onEvent) {
     instructions:
       "Bạn là trợ lý dịch vụ công hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến.\n" +
       "1. Khi vừa bắt đầu phiên thoại hoặc khi chỉ nhận được cấu trúc trang, hãy chào ngắn gọn, nói bác đang ở trang nào, rồi hỏi bác muốn làm thủ tục gì hoặc cần điền phần nào. Không tự gọi `check_login_status` khi vừa bắt đầu.\n" +
-      "2. Chỉ gọi `check_login_status` khi bác đã chọn một thủ tục cụ thể hoặc yêu cầu thao tác như điền hồ sơ, nộp hồ sơ, đăng nhập, kiểm tra trạng thái đăng nhập. Nếu chưa đăng nhập, hãy hỏi xin phép trước khi gọi `navigate_to_login`; không tự chuyển trang khi bác chưa đồng ý rõ ràng.\n" +
-      "3. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không (Chúng ta hỗ trợ: 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru, và 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt).\n" +
-      "4. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n" +
-      "5. Nếu dịch vụ ĐƯỢC hỗ trợ: Hãy lập kế hoạch, gọi `inject_custom_ui` để hiển thị checklist 4 bước hướng dẫn lên màn hình, tự động điều hướng hoặc hướng dẫn người dân vào đúng trang tờ khai sau khi đã rõ ý định của bác.\n" +
-      "6. Khi thực hiện thủ tục Quyết toán thuế TNCN (Mã 2.002233):\n" +
+      "2. Luôn giữ ngữ cảnh hội thoại. Nếu bác trả lời ngắn như 'có', 'đồng ý', 'tiếp tục', hãy hiểu đó là xác nhận cho đề xuất gần nhất; không chào lại hoặc hỏi lại từ đầu.\n" +
+      "3. Chỉ gọi `check_login_status` khi bác đã chọn một thủ tục cụ thể hoặc yêu cầu thao tác như điền hồ sơ, nộp hồ sơ, đăng nhập, kiểm tra trạng thái đăng nhập. Nếu chưa đăng nhập, hãy hỏi xin phép trước khi gọi `navigate_to_login`; không tự chuyển trang khi bác chưa đồng ý rõ ràng.\n" +
+      "4. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không (Chúng ta hỗ trợ: 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru, 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt, và 'Quyết toán thuế / Hoàn thuế TNCN' thủ tục 2.002233 trên trang Thuế Nhà nước).\n" +
+      "5. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n" +
+      "6. Nếu dịch vụ ĐƯỢC hỗ trợ: hãy lập kế hoạch và gọi `update_checklist` hoặc `inject_custom_ui` để hiển thị checklist hướng dẫn lên màn hình. Khi cần quan sát/truy cập DOM, hãy dùng các tool `read_page_content`, `click_element`, `select_option`, `fill_field`; không chỉ nói suông.\n" +
+      "7. Khi thực hiện thủ tục Quyết toán thuế TNCN (Mã 2.002233):\n" +
       "   - Khi ở trang https://dichvucong.gdt.gov.vn/tthc/login hoặc /tthc/home, hãy gọi `read_tax_login_state` sau mỗi lần chuyển modal. Snapshot này đã lọc CSRF, mật khẩu, captcha và MST thô.\n" +
       "   - Tuyệt đối không yêu cầu người dân đọc mật khẩu hoặc captcha cho AI; hãy hướng dẫn bác tự nhập captcha/mật khẩu trên trang. Không tìm cách giải captcha.\n" +
       "   - Trước khi bấm nút Đăng nhập, chọn/dùng MST đã lưu, hoặc bấm Tiếp tục sau khi chọn MST, hãy hỏi xác nhận rõ ràng. Chỉ truyền `user_confirmed: true` vào `click_element` sau khi bác đồng ý.\n" +
       "   - Khi tìm thủ tục 2.002233, link chữ tên thủ tục chỉ mở trang chi tiết. Để nộp hồ sơ phải bấm icon folder màu xanh với selector `a.nop-hoso-btn[ma-tthc='2.002233']`; hãy hỏi xác nhận trước và truyền `user_confirmed: true`.\n" +
       "   - Hướng dẫn người dân giải quyết cây quyết định chọn cơ quan thuế bằng các câu hỏi đơn giản, ví dụ: 'Năm ngoái bác làm ở mấy công ty?', 'Hiện tại bác có đang ký hợp đồng lao động ở đâu không?', 'Các công ty cũ đã khấu trừ thuế của bác chưa?'. Sau đó gọi click_element để chọn đúng các ô điều kiện: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n" +
       "   - Điền các số liệu từ Chứng từ khấu trừ thuế TNCN (Mã số thuế, thu nhập chịu thuế, số thuế đã khấu trừ, số tiền đề nghị hoàn, số tài khoản, ngân hàng) bằng tool fill_field.\n" +
-      "7. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ và luôn truyền selector hoặc semanticId tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền.\n" +
-      "8. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi.",
+      "8. Khi bác yêu cầu đăng nhập, hãy dùng `update_checklist` với các bước: chọn đối tượng Cá nhân, chọn phương thức Tài khoản điện tử, bác tự nhập mật khẩu/captcha, xác nhận trước khi bấm Đăng nhập/Tiếp tục. Sau đó gọi `read_tax_login_state`, `read_page_content` hoặc `check_login_status` tùy trang hiện tại.\n" +
+      "9. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ và luôn truyền selector hoặc semanticId tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền.\n" +
+      "10. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi.",
     voice: "alloy",
     tools: [
       fillFieldTool,
@@ -333,11 +350,15 @@ export async function initializeVoiceAssistant(onEvent) {
           transcription: {
             model: "gpt-4o-transcribe",
             language: "vi",
-            prompt: "Người nói dùng tiếng Việt trong ngữ cảnh dịch vụ công Việt Nam, biểu mẫu hành chính, căn cước công dân, bảo hiểm y tế, thường trú, tạm trú."
+            prompt: "Người nói dùng tiếng Việt trong ngữ cảnh dịch vụ công Việt Nam, biểu mẫu hành chính, thuế thu nhập cá nhân, hoàn thuế, căn cước công dân, bảo hiểm y tế, thường trú, tạm trú. Bỏ qua tiếng ồn nền, tiếng gõ phím, tiếng thở, tiếng loa vọng lại; chỉ phiên âm lời nói rõ ràng của người dùng."
           },
           turnDetection: {
-            type: "semantic_vad",
-            eagerness: "medium",
+            type: "server_vad",
+            threshold: 0.65,
+            prefixPaddingMs: 500,
+            silenceDurationMs: 850,
+            createResponse: true,
+            interruptResponse: true
           },
         },
       },
@@ -445,8 +466,20 @@ export async function initializeVoiceAssistant(onEvent) {
 
 export function closeVoiceSession(session) {
   if (session) {
-    session.interrupt();
-    session.close();
+    try {
+      session.interrupt();
+    } catch (error) {
+      if (!isExtensionContextInvalidated(error)) {
+        console.warn("[EasyDVC] Không interrupt được phiên thoại:", error);
+      }
+    }
+    try {
+      session.close();
+    } catch (error) {
+      if (!isExtensionContextInvalidated(error)) {
+        console.warn("[EasyDVC] Không đóng được phiên thoại:", error);
+      }
+    }
     console.log("[EasyDVC] Đã đóng phiên thoại.");
   }
 }
