@@ -1,0 +1,16 @@
+# ThôngDVC
+
+> Trợ lý thoại thông minh sử dụng OpenAI Realtime WebRTC để hỗ trợ người cao tuổi Việt Nam thực hiện thủ tục hành chính trên cổng Dịch vụ công Quốc gia (dichvucong.gov.vn).
+
+## Core Documentation
+
+- [Project Overview & PDR](docs/project-overview-pdr.md): Giới thiệu chung, mục tiêu thiết kế và yêu cầu phát triển của ThôngDVC.
+- [System Architecture](docs/system-architecture.md): Sơ đồ kiến trúc tổng quan, thiết kế luồng bảo mật PII Shield (Solution A) và tương tác DOM Caching.
+- [Codebase Summary](docs/codebase-summary.md): Bản đồ cấu trúc thư mục, chi tiết vai trò của từng tệp mã nguồn trong dự án.
+- [Code Standards](docs/code-standards.md): Bộ quy chuẩn thiết kế mã nguồn, nguyên tắc Shadow DOM isolation và Zero-State PII.
+
+## Guides & Roadmap
+
+- [Project Roadmap & Changelog](docs/project-roadmap.md): Nhật ký thay đổi và lộ trình phát triển qua các giai đoạn.
+- [Voice Agent Integration Guide](docs/voice-agent-integration-guide.md): Hướng dẫn chi tiết tích hợp Realtime Agent trực tiếp ở Chrome Extension.
+- [WebRTC Realtime Integration](docs/webrtc-realtime-integration.md): Hướng dẫn chi tiết về cấu hình, tối ưu hóa giao thức kết nối WebRTC.
