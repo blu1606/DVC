@@ -133,6 +133,14 @@
       font-size: 13px;
       max-width: 95%;
     }
+    .thongdvc-bubble-progress {
+      background: rgba(59, 130, 246, 0.14);
+      border-left: 3px solid #60a5fa;
+      color: #dbeafe;
+      align-self: center;
+      font-size: 13px;
+      max-width: 95%;
+    }
     .thongdvc-footer {
       padding: 12px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -298,6 +306,7 @@
   let currentStreamingBubble = null;
   let currentStreamingText = "";
   let functionCallNames = {};
+  let toolCallProgressShown = new Set();
   let isSendingChat = false;
   const micBtn = document.getElementById("thongdvc-mic-btn");
   const panel = document.getElementById("thongdvc-panel");
@@ -345,6 +354,172 @@
     return bubble;
   }
 
+  function formatErrorMessage(error) {
+    const rawMessage =
+      (error && error.message) ||
+      (error && error.error && error.error.message) ||
+      (typeof error === "string" ? error : "");
+    const message = String(rawMessage || "").trim();
+    const lowerMessage = message.toLowerCase();
+
+    if (!message || message === "[object Object]") {
+      return "Có lỗi khi xử lý yêu cầu. Bác thử lại sau ít phút nhé.";
+    }
+    if (lowerMessage.includes("extension context invalidated")) {
+      return "Extension vừa được cập nhật. Bác hãy tải lại trang rồi thử lại.";
+    }
+    if (lowerMessage.includes("failed to fetch")) {
+      return "Không kết nối được máy chủ trợ lý. Bác thử lại sau khi server đã chạy.";
+    }
+    if (lowerMessage.includes("permission") || lowerMessage.includes("notallowed")) {
+      return "Chưa có quyền micro. Bác cấp quyền micro rồi thử lại.";
+    }
+    return message;
+  }
+
+  function humanizeFieldName(fieldName) {
+    const normalized = String(fieldName || "").toLowerCase();
+    const fieldLabels = {
+      fullname: "họ và tên",
+      name: "họ và tên",
+      birthday: "ngày sinh",
+      birth: "ngày sinh",
+      "cccd-num": "số định danh/CCCD",
+      cccd: "số định danh/CCCD",
+      phone: "số điện thoại",
+      tel: "số điện thoại",
+      province: "tỉnh/thành phố",
+      city: "tỉnh/thành phố",
+      district: "quận/huyện",
+      ward: "xã/phường",
+      address: "địa chỉ chi tiết",
+      "btn-submit": "nút nộp hồ sơ",
+      submit: "nút nộp hồ sơ"
+    };
+    return fieldLabels[normalized] || "thông tin";
+  }
+
+  function parseToolArguments(event) {
+    const rawArgs = event.arguments || event.item?.arguments;
+    if (!rawArgs) {
+      return {};
+    }
+    if (typeof rawArgs === "object") {
+      return rawArgs;
+    }
+    try {
+      return JSON.parse(rawArgs);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function getToolProgressMessage(toolName, args) {
+    switch (toolName) {
+      case "read_page_content":
+        return "Đang đọc nội dung biểu mẫu trên trang...";
+      case "read_tax_login_state":
+        return "Đang kiểm tra trạng thái đăng nhập thuế trên trang...";
+      case "fill_field":
+        return `Đang điền ${humanizeFieldName(args.field_name)} vào biểu mẫu...`;
+      case "select_option":
+        return `Đang chọn ${humanizeFieldName(args.field_name)} phù hợp trong danh sách...`;
+      case "fill_address_cascade":
+        return "Đang điền địa chỉ tỉnh, huyện, xã...";
+      case "click_element":
+        return `Đang bấm ${humanizeFieldName(args.field_name)} theo yêu cầu của bác...`;
+      case "inject_custom_ui":
+      case "update_checklist":
+        return "Đang cập nhật bảng hướng dẫn từng bước...";
+      case "check_login_status":
+        return "Đang kiểm tra trạng thái đăng nhập...";
+      case "navigate_to_login":
+        return "Đang mở trang đăng nhập...";
+      case "bulk_fill_profile":
+        return "Đang điền nhanh thông tin cá nhân đã lưu...";
+      case "scroll_page":
+        return "Đang cuộn trang để tìm phần cần thao tác...";
+      default:
+        return "Đang thực hiện thao tác trên trang...";
+    }
+  }
+
+  function makeWaitingProgressMessage(message) {
+    const actionText = String(message || "").trim();
+    if (!actionText) {
+      return "Đợi cháu một chút, cháu đang xử lý yêu cầu của bác...";
+    }
+    const normalizedAction = actionText.charAt(0).toLowerCase() + actionText.slice(1);
+    const spokenAction = normalizedAction.startsWith("đang ")
+      ? normalizedAction
+      : `đang ${normalizedAction}`;
+    return `Đợi cháu một chút, cháu ${spokenAction}`;
+  }
+
+  function appendProgressLog(message) {
+    const progressMessage = makeWaitingProgressMessage(message);
+    setStatus(progressMessage, "#60a5fa");
+    return appendLog("Tiến trình", progressMessage, "progress");
+  }
+
+  function normalizeVietnameseText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase();
+  }
+
+  function findSupportedProcedureChecklist(userText, assistantText) {
+    const combinedText = normalizeVietnameseText(`${userText || ""} ${assistantText || ""}`);
+    const procedureChecklists = [
+      {
+        keywords: ["dang ky thuong tru", "thuong tru"],
+        steps: [
+          { label: "Vào trang đăng ký thường trú", done: false },
+          { label: "Điền đầy đủ thông tin cần thiết", done: false },
+          { label: "Kiểm tra lại thông tin", done: false },
+          { label: "Nộp hồ sơ", done: false }
+        ]
+      },
+      {
+        keywords: ["cap lai the bhyt", "bao hiem y te", "bhyt"],
+        steps: [
+          { label: "Vào trang cấp lại thẻ bảo hiểm y tế", done: false },
+          { label: "Điền thông tin người được cấp lại thẻ", done: false },
+          { label: "Kiểm tra thông tin liên hệ và địa chỉ nhận", done: false },
+          { label: "Gửi hồ sơ cấp lại thẻ", done: false }
+        ]
+      }
+    ];
+
+    return procedureChecklists.find(({ keywords }) =>
+      keywords.some((keyword) => combinedText.includes(keyword))
+    );
+  }
+
+  async function maybeShowSupportedProcedureChecklist(userText, assistantText) {
+    const checklist = findSupportedProcedureChecklist(userText, assistantText);
+    if (!checklist || typeof window.handleCommand !== "function") {
+      return false;
+    }
+    try {
+      const result = await window.handleCommand({
+        action: "update_checklist",
+        steps: checklist.steps
+      });
+      if (result?.status !== "success") {
+        console.warn("[EasyDVC] Checklist fallback failed:", result);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn("[EasyDVC] Checklist fallback error:", error);
+      return false;
+    }
+  }
+
   // Real-time AI response delta streaming
   function updateAiStreaming(delta) {
     if (!currentStreamingBubble) {
@@ -383,7 +558,7 @@
       finalizeAiStreaming();
     } else if (msg.type === "error") {
       setStatus("Lỗi kết nối!", "#f87171");
-      appendLog("Lỗi", (msg.error && msg.error.message) || msg.error || "Không thể kết nối.", "error");
+      appendLog("Lỗi", formatErrorMessage(msg.error), "error");
       stopVoiceSession();
     } else if (msg.type === "transport_event") {
       const event = msg.event;
@@ -406,8 +581,13 @@
       }
       // 4. Real-time tool call status (e.g. AI calling a form filling function)
       if (event.type === "response.function_call_arguments.done") {
-        const toolName = functionCallNames[event.call_id] || "unknown_tool";
-        appendLog("Hệ thống", `AI đang thực hiện lệnh: ${toolName}`, "warning");
+        const callId = event.call_id || event.item_id || `${Date.now()}-${Math.random()}`;
+        if (!toolCallProgressShown.has(callId)) {
+          toolCallProgressShown.add(callId);
+          const toolName = functionCallNames[event.call_id] || event.name || "unknown_tool";
+          const args = parseToolArguments(event);
+          appendProgressLog(getToolProgressMessage(toolName, args));
+        }
       }
     }
   }
@@ -426,7 +606,9 @@
       toggleBtn.innerText = "Dừng thoại";
       toggleBtn.className = "thongdvc-btn thongdvc-btn-stop";
       toggleBtn.disabled = false;
-      appendLog("Hệ thống", "Đã kết nối thoại thành công.", "warning");
+      functionCallNames = {};
+      toolCallProgressShown = new Set();
+      appendLog("Trạng thái", "Trợ lý thoại đã sẵn sàng lắng nghe bác.", "warning");
     } catch (err) {
       toggleBtn.innerText = "Bắt đầu nói";
       toggleBtn.className = "thongdvc-btn thongdvc-btn-start";
@@ -442,7 +624,7 @@
         window.open(chrome.runtime.getURL("permission.html"));
       } else {
         setStatus("Không kết nối được trợ lý thoại.", "#f87171");
-        appendLog("Lỗi", err.message || "Không thể kết nối trợ lý thoại.", "error");
+        appendLog("Lỗi", formatErrorMessage(err), "error");
       }
     }
   }
@@ -457,7 +639,7 @@
     setStatus("Đã ngắt kết nối thoại.", "#94a3b8");
     toggleBtn.innerText = "Bắt đầu nói";
     toggleBtn.className = "thongdvc-btn thongdvc-btn-start";
-    appendLog("Hệ thống", "Đã dừng phiên thoại.", "warning");
+    appendLog("Trạng thái", "Đã tắt chế độ thoại.", "warning");
   }
 
   toggleBtn.addEventListener("click", () => {
@@ -516,8 +698,7 @@
     isSendingChat = true;
     sendBtn.disabled = true;
     sendBtn.innerText = "Đợi...";
-    setStatus(session ? "Đang gửi tin nhắn..." : "Đang chat với trợ lý...", "#fbbf24");
-    const pendingBubble = appendLog("Trợ lý", "Đang xử lý...", "agent");
+    const pendingBubble = appendProgressLog("đang xử lý yêu cầu của bác...");
 
     try {
       const response = await fetch("http://localhost:8001/chat", {
@@ -532,16 +713,18 @@
         throw new Error(data.error || `HTTP ${response.status}`);
       }
       pendingBubble.remove();
-      appendLog("Trợ lý", data.reply || "Cháu chưa có câu trả lời phù hợp.", "agent");
+      const assistantReply = data.reply || "Cháu chưa có câu trả lời phù hợp.";
+      appendLog("Trợ lý", assistantReply, "agent");
+      await maybeShowSupportedProcedureChecklist(textToSend, assistantReply);
       setStatus(session ? "Đang lắng nghe bác..." : "Chat sẵn sàng. Thoại đang tắt.", session ? "#60a5fa" : "#94a3b8");
     } catch (err) {
       pendingBubble.remove();
       appendLog(
         "Lỗi",
-        "Không gửi được tin nhắn. Bác kiểm tra backend chat ở http://localhost:8001/chat rồi thử lại.",
+        "Không gửi được tin nhắn. Bác thử lại sau khi máy chủ trợ lý đã chạy.",
         "error"
       );
-      setStatus("Chat chưa kết nối được backend.", "#f87171");
+      setStatus("Chat chưa kết nối được máy chủ trợ lý.", "#f87171");
       chatInput.value = text;
       console.error("[EasyDVC] Chat error:", err);
     } finally {

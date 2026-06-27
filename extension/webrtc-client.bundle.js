@@ -63415,60 +63415,146 @@ ${str(snapshot)}`);
 
   // ui-builder.js
   function buildChecklistHTML(steps) {
+    const doneCount = steps.filter(({ done }) => done).length;
+    const totalCount = steps.length;
     const stepItems = steps.map(
-      ({ label, done }) => `
+      ({ label, done }, index) => `
       <li class="step ${done ? "done" : ""}">
-        <span class="icon">${done ? "\u2705" : "\u2B1C"}</span>
-        <span class="label">${escapeHtml(label)}</span>
+        <span class="step-index">${done ? "\u2713" : index + 1}</span>
+        <span class="label">${escapeHtml(normalizeChecklistLabel(label))}</span>
       </li>`
     ).join("");
     return `
     <style>
       :host {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 16px;
+        display: block;
+        color: #f8fafc;
       }
       .panel {
-        background: #1e293b;
+        background: #0f172a;
         color: #f8fafc;
-        border-radius: 12px;
-        padding: 16px 20px;
-        min-width: 260px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-left: 3px solid #60a5fa;
+        border-radius: 10px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
+        overflow: hidden;
+        max-height: inherit;
       }
-      h3 {
-        margin: 0 0 12px;
+      summary {
+        min-height: 42px;
+        padding: 9px 12px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary:focus-visible {
+        outline: 3px solid rgba(96, 165, 250, 0.42);
+        outline-offset: -3px;
+      }
+      .summary-title {
         font-size: 14px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        line-height: 1.35;
+        font-weight: 700;
+        color: #e2e8f0;
       }
-      ul {
+      .summary-meta {
+        flex: 0 0 auto;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.18);
+        color: #bfdbfe;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .close {
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(148, 163, 184, 0.12);
+        color: #cbd5e1;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .close:hover {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+      .close:focus-visible {
+        outline: 3px solid rgba(96, 165, 250, 0.42);
+        outline-offset: 2px;
+      }
+      .steps {
         list-style: none;
-        padding: 0;
+        padding: 0 12px 8px;
         margin: 0;
+        max-height: min(340px, calc(100vh - 190px));
+        overflow-y: auto;
       }
       .step {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        align-items: start;
+        gap: 8px;
         padding: 8px 0;
-        border-bottom: 1px solid #334155;
-        font-size: 15px;
-        line-height: 1.4;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+        font-size: 14px;
+        line-height: 1.35;
+        color: #e2e8f0;
       }
-      .step:last-child { border-bottom: none; }
-      .step.done .label { color: #64748b; text-decoration: line-through; }
-      .icon { font-size: 18px; flex-shrink: 0; }
+      .step-index {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(96, 165, 250, 0.16);
+        color: #bfdbfe;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .step.done .step-index {
+        background: rgba(16, 185, 129, 0.18);
+        color: #86efac;
+      }
+      .step.done .label {
+        color: #94a3b8;
+        text-decoration: line-through;
+      }
+      @media (max-width: 480px) {
+        .summary-title { font-size: 13.5px; }
+        .steps { max-height: 124px; }
+        .step { font-size: 13px; }
+      }
     </style>
-    <div class="panel">
-      <h3>\u{1F4CB} H\u01B0\u1EDBng d\u1EABn \u0111i\u1EC1n form</h3>
-      <ul>${stepItems}</ul>
-    </div>
+    <details class="panel" data-easydvc-checklist="true" open>
+      <summary>
+        <span class="summary-title">C\xE1c b\u01B0\u1EDBc c\u1EA7n l\xE0m</span>
+        <span class="summary-meta">${doneCount}/${totalCount || 0} xong</span>
+        <button class="close" type="button" data-easydvc-close aria-label="T\u1EAFt checklist">\xD7</button>
+      </summary>
+      <ol class="steps">${stepItems}</ol>
+    </details>
   `;
   }
+  function normalizeChecklistLabel(label) {
+    return String(label || "").replace(/^\s*\d+[\).\-\s]+/, "").trim();
+  }
   function escapeHtml(str2) {
-    return str2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(str2 || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   // pii-shield.js
