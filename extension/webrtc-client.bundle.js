@@ -63416,11 +63416,17 @@ ${str(snapshot)}`);
   // ui-builder.js
   function buildChecklistHTML(steps) {
     const stepItems = steps.map(
-      ({ label, done }) => `
-      <li class="step ${done ? "done" : ""}">
-        <span class="icon">${done ? "\u2705" : "\u2B1C"}</span>
+      ({ label, done, status, reason }) => {
+        const stepStatus = status || (done ? "done" : "todo");
+        const icon = stepStatus === "done" ? "\u2713" : stepStatus === "current" ? "\u2192" : stepStatus === "blocked" ? "!" : "\u25A1";
+        const reasonHtml = reason ? `<span class="reason">${escapeHtml(reason)}</span>` : "";
+        return `
+      <li class="step ${escapeHtml(stepStatus)}">
+        <span class="icon">${icon}</span>
         <span class="label">${escapeHtml(label)}</span>
-      </li>`
+        ${reasonHtml}
+      </li>`;
+      }
     ).join("");
     return `
     <style>
@@ -63449,8 +63455,8 @@ ${str(snapshot)}`);
         margin: 0;
       }
       .step {
-        display: flex;
-        align-items: center;
+        display: grid;
+        grid-template-columns: 22px 1fr;
         gap: 10px;
         padding: 8px 0;
         border-bottom: 1px solid #334155;
@@ -63459,7 +63465,37 @@ ${str(snapshot)}`);
       }
       .step:last-child { border-bottom: none; }
       .step.done .label { color: #64748b; text-decoration: line-through; }
-      .icon { font-size: 18px; flex-shrink: 0; }
+      .step.current {
+        margin: 6px -8px;
+        padding: 10px 8px;
+        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.14);
+        border-bottom-color: transparent;
+      }
+      .step.current .label { color: #f8fafc; font-weight: 700; }
+      .step.blocked .label { color: #fde68a; }
+      .icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(148, 163, 184, 0.16);
+        font-size: 14px;
+        font-weight: 800;
+        flex-shrink: 0;
+      }
+      .step.done .icon { background: rgba(16, 185, 129, 0.22); color: #86efac; }
+      .step.current .icon { background: rgba(16, 185, 129, 0.32); color: #a7f3d0; }
+      .step.blocked .icon { background: rgba(251, 191, 36, 0.18); color: #fde68a; }
+      .reason {
+        grid-column: 2;
+        color: #cbd5e1;
+        font-size: 12.5px;
+        line-height: 1.35;
+        margin-top: -4px;
+      }
     </style>
     <div class="panel">
       <h3>\u{1F4CB} H\u01B0\u1EDBng d\u1EABn \u0111i\u1EC1n form</h3>
@@ -63468,7 +63504,7 @@ ${str(snapshot)}`);
   `;
   }
   function escapeHtml(str2) {
-    return str2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(str2 || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   // pii-shield.js

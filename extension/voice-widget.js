@@ -4,7 +4,7 @@
  */
 
 (function () {
-  if (typeof window === "undefined" || document.getElementById("thongdvc-widget-container")) {
+  if (typeof window === "undefined" || window !== window.top || document.getElementById("thongdvc-widget-container")) {
     return;
   }
 
@@ -520,20 +520,17 @@
     }
   });
 
-  function shouldUseBrowserAgent(text) {
-    const normalized = (text || "").toLowerCase();
-    return [
-      "browser use",
-      "browser agent",
-      "chrome riêng",
-      "trình duyệt riêng",
-      "agent tự",
-      "tự browse",
-      "tự thao tác trình duyệt",
-      "làm giúp thủ tục",
-      "mở dịch vụ",
-      "đi tới dịch vụ"
-    ].some(keyword => normalized.includes(keyword));
+  function summarizePlan(plan) {
+    if (!plan || !Array.isArray(plan.steps)) {
+      return "";
+    }
+    const current = plan.steps.find(step => step.status === "current") || plan.steps.find(step => step.status === "blocked");
+    const doneCount = plan.steps.filter(step => step.status === "done" || step.done).length;
+    const total = plan.steps.length;
+    if (!current) {
+      return total ? `Đã lập kế hoạch ${doneCount}/${total} bước.` : "";
+    }
+    return `Bước tiếp theo: ${current.label || current.id}. (${doneCount}/${total} đã xong)`;
   }
 
   async function sendChatMessage() {
@@ -606,13 +603,7 @@
         }
       }
 
-      const useBrowserAgent = shouldUseBrowserAgent(textToSend);
-      const endpoint = useBrowserAgent ? "browser-task" : "chat";
-      if (useBrowserAgent) {
-        setStatus("Browser agent đang mở Chrome riêng...", "#fbbf24");
-      }
-
-      const response = await fetch(`http://localhost:8001/${endpoint}`, {
+      const response = await fetch("http://localhost:8001/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -624,10 +615,27 @@
         throw new Error(data.error || `HTTP ${response.status}`);
       }
       pendingBubble.remove();
-      if (Array.isArray(data.tool_actions) && data.tool_actions.length > 0) {
-        appendLog(useBrowserAgent ? "Browser agent" : "Công cụ", data.tool_actions.join(" · "), "warning");
+      const planSummary = summarizePlan(data.plan);
+      if (planSummary) {
+        appendLog("Tiến độ", planSummary, "warning");
+      } else if (Array.isArray(data.tool_actions) && data.tool_actions.length > 0) {
+        console.debug("[EasyDVC] Tool actions:", data.tool_actions);
       }
       appendLog("Trợ lý", data.reply || "Cháu chưa có câu trả lời phù hợp.", "agent");
+      if (data.plan?.use_browser_agent) {
+        setStatus("Browser agent đang mở Chrome riêng...", "#fbbf24");
+        const browserResponse = await fetch("http://localhost:8001/browser-task", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message: textToSend, domSnapshot, currentUrl: window.location.href })
+        });
+        const browserData = await browserResponse.json().catch(() => ({}));
+        if (browserData.reply) {
+          appendLog("Browser agent", browserData.reply, browserResponse.ok ? "agent" : "error");
+        }
+      }
       setStatus(session ? "Đang lắng nghe bác..." : "Chat sẵn sàng. Thoại đang tắt.", session ? "#60a5fa" : "#94a3b8");
     } catch (err) {
       pendingBubble.remove();

@@ -18,6 +18,33 @@ DEFAULT_MAX_STEPS = 18
 DEFAULT_TIMEOUT_SECONDS = 180
 
 
+def _load_browser_use_classes():
+    try:
+        from browser_use.beta import Agent, BrowserProfile, ChatOpenAI
+
+        return {
+            "mode": "beta",
+            "Agent": Agent,
+            "BrowserProfile": BrowserProfile,
+            "BrowserSession": None,
+            "ChatOpenAI": ChatOpenAI,
+        }
+    except Exception:
+        pass
+
+    from browser_use import Agent, BrowserSession
+    from browser_use.browser import BrowserProfile
+    from browser_use.llm import ChatOpenAI
+
+    return {
+        "mode": "stable",
+        "Agent": Agent,
+        "BrowserProfile": BrowserProfile,
+        "BrowserSession": BrowserSession,
+        "ChatOpenAI": ChatOpenAI,
+    }
+
+
 def _is_enabled() -> bool:
     return os.getenv("BROWSER_USE_ENABLED", "").strip().lower() in ENABLE_VALUES
 
@@ -71,30 +98,41 @@ async def run_browser_task(message: str, current_url: str | None = None) -> dict
         }
 
     try:
-        from browser_use import Agent as BrowserUseAgent
-        from browser_use import BrowserProfile, BrowserSession, ChatOpenAI
+        browser_use = _load_browser_use_classes()
     except Exception as exc:
         return {
             "status": "error",
             "code": "BROWSER_USE_NOT_AVAILABLE",
             "reply": (
-                "Backend chưa import được Browser Use. Chạy `pip install -r backend/requirements.txt` "
-                f"rồi thử lại. Lỗi: {exc}"
+                "Backend chưa import được Browser Use. Chạy `uv sync` trong backend hoặc "
+                f"`pip install -r backend/requirements.txt` rồi thử lại. Lỗi: {exc}"
             ),
             "tool_actions": ["browser_use=missing_package"],
         }
+
+    BrowserProfile = browser_use["BrowserProfile"]
+    BrowserSession = browser_use["BrowserSession"]
+    BrowserUseAgent = browser_use["Agent"]
+    ChatOpenAI = browser_use["ChatOpenAI"]
 
     profile = BrowserProfile(
         user_data_dir=_default_profile_dir(),
         headless=os.getenv("BROWSER_USE_HEADLESS", "").strip().lower() in ENABLE_VALUES,
     )
-    browser_session = BrowserSession(browser_profile=profile)
     llm = ChatOpenAI(model=os.getenv("BROWSER_USE_MODEL", DEFAULT_MODEL))
-    agent = BrowserUseAgent(
-        task=_build_task(message, current_url),
-        llm=llm,
-        browser_session=browser_session,
-    )
+    if browser_use["mode"] == "beta":
+        agent = BrowserUseAgent(
+            task=_build_task(message, current_url),
+            llm=llm,
+            browser_profile=profile,
+        )
+    else:
+        browser_session = BrowserSession(browser_profile=profile)
+        agent = BrowserUseAgent(
+            task=_build_task(message, current_url),
+            llm=llm,
+            browser_session=browser_session,
+        )
 
     max_steps = int(os.getenv("BROWSER_USE_MAX_STEPS", str(DEFAULT_MAX_STEPS)))
     timeout = int(os.getenv("BROWSER_USE_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS)))

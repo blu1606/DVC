@@ -44,28 +44,30 @@ const FIELD_MAPPINGS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // KẾT NỐI WEBSOCKET ĐẾN BRIDGE SERVER
 // ─────────────────────────────────────────────────────────────────────────────
-const socket = new WebSocket("ws://localhost:8000");
+if (window === window.top) {
+  const socket = new WebSocket("ws://localhost:8000");
 
-socket.addEventListener("open", () => {
-  console.log("[EasyDVC] Extension đã kết nối với Bridge Server.");
-});
+  socket.addEventListener("open", () => {
+    console.log("[EasyDVC] Extension đã kết nối với Bridge Server.");
+  });
 
-socket.addEventListener("message", async (event) => {
-  let command;
-  try {
-    command = JSON.parse(event.data);
-  } catch (e) {
-    console.error("[EasyDVC] JSON không hợp lệ:", event.data);
-    return;
-  }
+  socket.addEventListener("message", async (event) => {
+    let command;
+    try {
+      command = JSON.parse(event.data);
+    } catch (e) {
+      console.error("[EasyDVC] JSON không hợp lệ:", event.data);
+      return;
+    }
 
-  const result = await handleCommand(command);
-  socket.send(JSON.stringify(result));
-});
+    const result = await handleCommand(command);
+    socket.send(JSON.stringify(result));
+  });
 
-socket.addEventListener("close", () => {
-  console.warn("[EasyDVC] Mất kết nối với Bridge Server.");
-});
+  socket.addEventListener("close", () => {
+    console.warn("[EasyDVC] Mất kết nối với Bridge Server.");
+  });
+}
 
 // Lắng nghe lệnh trực tiếp từ Extension Popup (cho WebRTC client-side)
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
@@ -481,10 +483,33 @@ function verifyActionResult(command, element) {
   };
 }
 
+function isLoginElement(el) {
+  if (!el) return false;
+  const href = (el.getAttribute("href") || "").toLowerCase();
+  const id = (el.id || "").toLowerCase();
+  const className = String(el.className || "").toLowerCase();
+  const target = (el.getAttribute("data-bs-target") || el.getAttribute("data-target") || "").toLowerCase();
+  const text = normalizeText(el.innerText || el.textContent || el.value || "").toLowerCase();
+  const hasLoginUrl = href.includes("login") || href.includes("dang-nhap") || href.includes("/tthc/login");
+  const hasLoginIdentity = id.includes("login") || className.includes("btn-login") || target.includes("login");
+  const hasLoginText = text.includes("đăng nhập") || text.includes("dang nhap") || text === "login";
+
+  if ((el.matches?.("a.nav-link.active") || className.includes("nav-link active")) && !hasLoginUrl && !hasLoginIdentity) {
+    return false;
+  }
+
+  return hasLoginUrl || hasLoginIdentity || hasLoginText;
+}
+
+function findLoginElement() {
+  return Array.from(document.querySelectorAll("a, button, [role='button']"))
+    .find(isLoginElement) || null;
+}
+
 function navigateToLogin(selector) {
   let loginSelector = selector;
   if (!loginSelector) {
-    const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+    const loginBtn = findLoginElement();
     if (loginBtn) {
       loginSelector = getUniqueSelector(loginBtn);
     }
@@ -492,7 +517,7 @@ function navigateToLogin(selector) {
 
   if (loginSelector) {
     const el = document.querySelector(loginSelector);
-    if (el) {
+    if (el && isLoginElement(el)) {
       el.click();
       return { status: "success", message: `Đã click vào nút đăng nhập (${loginSelector})` };
     }
@@ -947,7 +972,7 @@ function getUniqueSelector(el) {
 
 function checkLoginStatus() {
   // Tìm kiếm liên kết hoặc nút bấm đăng nhập
-  const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+  const loginBtn = findLoginElement();
   const userInfo = document.querySelector('.user-info, .profile-menu, #username-display, .login-username');
   
   if (userInfo) {
@@ -959,7 +984,7 @@ function checkLoginStatus() {
   
   // Fallback: Tìm text "Đăng nhập" trên toàn bộ trang
   const anchors = Array.from(document.querySelectorAll("a, button"));
-  const foundLogin = anchors.find(el => (el.innerText || "").toLowerCase().includes("đăng nhập"));
+  const foundLogin = anchors.find(isLoginElement);
   if (foundLogin) {
     return { status: "success", logged_in: false, login_selector: getUniqueSelector(foundLogin) };
   }
@@ -971,11 +996,17 @@ function checkLoginStatus() {
 function buildChecklistHTML(steps) {
   const stepItems = steps
     .map(
-      ({ label, done }) => `
-      <li class="step ${done ? "done" : ""}">
-        <span class="icon">${done ? "✅" : "⬜"}</span>
+      ({ label, done, status, reason }) => {
+        const stepStatus = status || (done ? "done" : "todo");
+        const icon = stepStatus === "done" ? "✓" : stepStatus === "current" ? "→" : stepStatus === "blocked" ? "!" : "□";
+        const reasonHtml = reason ? `<span class="reason">${escapeHtml(reason)}</span>` : "";
+        return `
+      <li class="step ${escapeHtml(stepStatus)}">
+        <span class="icon">${icon}</span>
         <span class="label">${escapeHtml(label)}</span>
-      </li>`
+        ${reasonHtml}
+      </li>`;
+      }
     )
     .join("");
 
@@ -1035,8 +1066,8 @@ function buildChecklistHTML(steps) {
         margin: 0;
       }
       .step {
-        display: flex;
-        align-items: center;
+        display: grid;
+        grid-template-columns: 22px 1fr;
         gap: 10px;
         padding: 8px 0;
         border-bottom: 1px solid #334155;
@@ -1045,7 +1076,37 @@ function buildChecklistHTML(steps) {
       }
       .step:last-child { border-bottom: none; }
       .step.done .label { color: #64748b; text-decoration: line-through; }
-      .icon { font-size: 18px; flex-shrink: 0; }
+      .step.current {
+        margin: 6px -8px;
+        padding: 10px 8px;
+        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.14);
+        border-bottom-color: transparent;
+      }
+      .step.current .label { color: #f8fafc; font-weight: 700; }
+      .step.blocked .label { color: #fde68a; }
+      .icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(148, 163, 184, 0.16);
+        font-size: 14px;
+        font-weight: 800;
+        flex-shrink: 0;
+      }
+      .step.done .icon { background: rgba(16, 185, 129, 0.22); color: #86efac; }
+      .step.current .icon { background: rgba(16, 185, 129, 0.32); color: #a7f3d0; }
+      .step.blocked .icon { background: rgba(251, 191, 36, 0.18); color: #fde68a; }
+      .reason {
+        grid-column: 2;
+        color: #cbd5e1;
+        font-size: 12.5px;
+        line-height: 1.35;
+        margin-top: -4px;
+      }
     </style>
     <div class="panel">
       <div class="header">
@@ -1061,7 +1122,7 @@ function buildChecklistHTML(steps) {
 }
 
 function escapeHtml(str) {
-  return str
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

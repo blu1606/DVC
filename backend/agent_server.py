@@ -22,6 +22,7 @@ load_dotenv()
 # =============================================================================
 from bridge_server import BrowserBridgeServer
 from browser_use_runner import run_browser_task
+from assistant_planner import build_action_plan, build_preflight_state
 
 bridge = BrowserBridgeServer()
 chat_lock = asyncio.Lock()
@@ -31,7 +32,14 @@ chat_history: list[dict[str, str]] = []
 
 class ChecklistStep(BaseModel):
     label: str
-    done: bool
+    done: bool = False
+    status: str | None = None
+    id: str | None = None
+    tool: str | None = None
+    selector: str | None = None
+    requires_confirmation: bool = False
+    sensitive: bool = False
+    reason: str | None = None
 
 
 # =============================================================================
@@ -333,9 +341,14 @@ def _find_login_selector(dom_snapshot: dict | None) -> str | None:
     for button in buttons:
         if not isinstance(button, dict):
             continue
-        text = _normalize_vi(str(button.get("text") or button.get("name") or button.get("id") or ""))
+        raw_text = str(button.get("text") or button.get("name") or button.get("id") or "")
+        text = _normalize_vi(raw_text)
         selector = button.get("selector")
-        if selector and ("đăng nhập" in text or "dang nhap" in text or "login" in text or button.get("name") == "openLogin"):
+        selector_text = _normalize_vi(str(selector or ""))
+        is_login_text = "đăng nhập" in text or "dang nhap" in text or "login" in text or button.get("name") == "openLogin"
+        is_login_selector = "login" in selector_text or "dang-nhap" in selector_text or "btn-login" in selector_text
+        is_generic_active_nav = "nav-link.active" in selector_text and not is_login_selector
+        if selector and is_login_text and not is_generic_active_nav:
             return selector
     return None
 
@@ -383,6 +396,64 @@ def _fallback_reply(actions: list[str], message: str) -> str:
         "Dạ, cháu đã mở checklist hướng dẫn đăng nhập trên màn hình. "
         "Bác chọn Cá nhân, dùng Tài khoản điện tử, tự nhập mật khẩu/captcha; khi cần bấm Đăng nhập cháu sẽ hỏi xác nhận trước."
     )
+
+
+async def _build_chat_plan(message: str, dom_snapshot: dict | None, current_url: str | None) -> tuple[dict | None, list[str]]:
+    preflight = build_preflight_state(
+        message,
+        dom_snapshot,
+        current_url=current_url,
+        chat_history=chat_history,
+    )
+    actions: list[str] = []
+    intent = preflight.get("intent", {})
+    if intent.get("wants_login") or intent.get("wants_tax"):
+        login_result = await bridge.execute_action("check_login", {})
+        actions.append(f"check_login={login_result.get('status')}: logged_in={login_result.get('logged_in')}")
+        preflight = build_preflight_state(
+            message,
+            dom_snapshot,
+            login_result=login_result,
+            current_url=current_url,
+            chat_history=chat_history,
+        )
+
+    plan = build_action_plan(message, preflight)
+    if plan:
+        intent = preflight.get("intent", {})
+        current_step = next((step for step in plan.get("steps", []) if step.get("status") == "current"), None)
+        if intent.get("short_confirm") and current_step and current_step.get("requires_confirmation"):
+            execute_result = await _execute_confirmed_plan_step(current_step)
+            actions.append(f"{current_step.get('tool')}={execute_result.get('status')}: {execute_result.get('message', '')}")
+            if execute_result.get("status") == "success":
+                current_step["status"] = "done"
+                current_step["done"] = True
+                plan["needs_user_confirmation"] = False
+                plan["next_step_id"] = None
+                plan["reply"] = "Dạ, cháu đã thực hiện bước bác vừa xác nhận. Cháu sẽ đọc lại trang để hướng dẫn bước tiếp theo."
+            else:
+                current_step["status"] = "blocked"
+                current_step["reason"] = execute_result.get("message") or "Không thực hiện được bước này."
+                plan["reply"] = "Dạ, cháu chưa thực hiện được bước này. Bác kiểm tra lại trang rồi thử lại giúp cháu."
+        checklist_result = await bridge.execute_action("update_checklist", {"steps": plan.get("steps", [])})
+        actions.append(f"update_checklist={checklist_result.get('status')}: {checklist_result.get('message', '')}")
+    return plan, actions
+
+
+async def _execute_confirmed_plan_step(step: dict) -> dict:
+    tool = step.get("tool")
+    if tool != "click_element":
+        return {"status": "blocked", "message": "Bước này chưa có executor an toàn."}
+
+    selector = step.get("selector")
+    if not selector:
+        return {"status": "blocked", "message": "Không có selector để bấm."}
+
+    return await bridge.execute_action("click_button", {
+        "field_name": step.get("id") or "confirmed-step",
+        "selector": selector,
+        "user_confirmed": True,
+    })
 
 
 def _http_response(status: int, body: dict, extra_headers: dict | None = None) -> bytes:
@@ -485,29 +556,35 @@ async def _handle_chat_http(reader: asyncio.StreamReader, writer: asyncio.Stream
             await writer.wait_closed()
             return
 
-        chat_input = _build_chat_input(message, dom_snapshot)
         tool_actions: list[str] = []
+        plan: dict | None = None
         async with chat_lock:
-            result = await Runner.run(agent, chat_input, max_turns=8)
-            reply = str(result.final_output or "")
-            if not _result_used_tools(result):
-                fallback_actions = await _run_chat_fallback_actions(message, dom_snapshot)
-                if fallback_actions:
-                    print(f"[CHAT] Agent không gọi tool, chạy fallback: {fallback_actions!r}")
-                    tool_actions = fallback_actions
-                    reply = _fallback_reply(fallback_actions, message) or reply
+            plan, plan_actions = await _build_chat_plan(message, dom_snapshot, current_url)
+            tool_actions.extend(plan_actions)
+            if plan:
+                reply = str(plan.get("reply") or "")
             else:
-                tool_actions = [
-                    getattr(item, "title", None) or getattr(item, "description", None) or getattr(item, "type", "tool")
-                    for item in getattr(result, "new_items", [])
-                    if getattr(item, "type", "") in {"tool_call_item", "tool_call_output_item"}
-                ]
+                chat_input = _build_chat_input(message, dom_snapshot)
+                result = await Runner.run(agent, chat_input, max_turns=8)
+                reply = str(result.final_output or "")
+                if not _result_used_tools(result):
+                    fallback_actions = await _run_chat_fallback_actions(message, dom_snapshot)
+                    if fallback_actions:
+                        print(f"[CHAT] Agent không gọi tool, chạy fallback: {fallback_actions!r}")
+                        tool_actions.extend(fallback_actions)
+                        reply = _fallback_reply(fallback_actions, message) or reply
+                else:
+                    tool_actions.extend([
+                        getattr(item, "title", None) or getattr(item, "description", None) or getattr(item, "type", "tool")
+                        for item in getattr(result, "new_items", [])
+                        if getattr(item, "type", "") in {"tool_call_item", "tool_call_output_item"}
+                    ])
             chat_history.extend([
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": reply},
             ])
             del chat_history[:-12]
-        writer.write(_http_response(200, {"reply": reply, "tool_actions": tool_actions}))
+        writer.write(_http_response(200, {"reply": reply, "tool_actions": tool_actions, "plan": plan}))
     except Exception as exc:
         print(f"[CHAT] Lỗi xử lý chat: {exc}")
         writer.write(_http_response(500, {"error": str(exc)}))
