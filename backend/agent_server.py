@@ -12,6 +12,7 @@ import json                       # ← FIX: bản gốc thiếu dòng này, gâ
 import asyncio
 from dotenv import load_dotenv
 from agents import Agent, function_tool, Runner
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -22,6 +23,12 @@ load_dotenv()
 from bridge_server import BrowserBridgeServer
 
 bridge = BrowserBridgeServer()
+chat_lock = asyncio.Lock()
+
+
+class ChecklistStep(BaseModel):
+    label: str
+    done: bool
 
 
 # =============================================================================
@@ -140,7 +147,7 @@ async def navigate_to_login(selector: str = None) -> dict:
 
 
 @function_tool
-async def update_checklist(steps: list) -> dict:
+async def update_checklist(steps: list[ChecklistStep]) -> dict:
     """
     Cập nhật hoặc hiển thị bảng checklist 4 bước hướng dẫn lên màn hình cho người dân.
 
@@ -148,8 +155,9 @@ async def update_checklist(steps: list) -> dict:
         steps: Danh sách các bước của checklist. Mỗi bước là một dict chứa 'label' (str) và 'done' (bool).
                Ví dụ: [{"label": "1. Đăng nhập", "done": True}]
     """
-    print(f"[TOOL] update_checklist({steps!r})")
-    return await bridge.execute_action("update_checklist", {"steps": steps})
+    normalized_steps = [step.model_dump() if hasattr(step, "model_dump") else step for step in steps]
+    print(f"[TOOL] update_checklist({normalized_steps!r})")
+    return await bridge.execute_action("update_checklist", {"steps": normalized_steps})
 
 
 @function_tool
@@ -191,11 +199,11 @@ agent = Agent(
     instructions=(
         "Bạn là trợ lý dịch vụ công hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến.\n"
         "1. Khi vừa bắt đầu phiên thoại hoặc khi chỉ nhận được cấu trúc trang, hãy chào ngắn gọn, nói bác đang ở trang nào, rồi hỏi bác muốn làm thủ tục gì hoặc cần điền phần nào. Không tự gọi `check_login_status` khi vừa bắt đầu.\n"
-        "2. Chỉ gọi `check_login_status` khi bác đã chọn một thủ tục cụ thể hoặc yêu cầu thao tác như điền hồ sơ, nộp hồ sơ, đăng nhập, kiểm tra trạng thái đăng nhập. Nếu chưa đăng nhập, hãy hỏi xin phép trước khi gọi `navigate_to_login`; không tự chuyển trang khi bác chưa đồng ý rõ ràng.\n"
+        "2. Chỉ gọi `check_login_status` khi bác muốn đăng nhập, nộp hồ sơ, điều hướng sang dịch vụ mới, kiểm tra trạng thái đăng nhập, hoặc thực hiện bước chắc chắn cần xác thực. Nếu bác chỉ yêu cầu điền/chọn/click một trường trên biểu mẫu hiện tại, hãy thao tác trực tiếp trên form; không được dừng lại chỉ vì chưa biết trạng thái đăng nhập. Nếu chưa đăng nhập, hãy hỏi xin phép trước khi gọi `navigate_to_login`; không tự chuyển trang khi bác chưa đồng ý rõ ràng.\n"
         "3. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không (Chúng ta hỗ trợ: 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru, và 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt).\n"
         "4. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n"
         "5. Nếu dịch vụ ĐƯỢC hỗ trợ: Hãy lập kế hoạch, gọi `inject_custom_ui` để hiển thị checklist 4 bước hướng dẫn lên màn hình, tự động điều hướng hoặc hướng dẫn người dân vào đúng trang tờ khai sau khi đã rõ ý định của bác.\n"
-        "6. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ và luôn truyền selector hoặc semanticId tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền.\n"
+        "6. Khi ở trang tờ khai, gọi `read_page_content` nếu cần xem các trường nhập liệu. Với yêu cầu trực tiếp như 'điền họ tên là X', 'chọn Hà Nội', 'điền số điện thoại...', hãy dùng ngay các công cụ `fill_field`, `select_option`, `fill_address_cascade`, `click_element` và luôn truyền selector hoặc semanticId tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền. Khi điền địa chỉ hành chính 3 cấp, hãy ưu tiên `fill_address_cascade` thay vì điền lẻ tẻ. Bác cũng có thể gọi `bulk_fill_profile` để điền nhanh các thông tin cá nhân cơ bản.\n"
         "7. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi."
     ),
     model="gpt-4o",               # ← FIX: "gpt-5.5" không tồn tại trong public docs
@@ -216,19 +224,129 @@ agent = Agent(
 
 
 # =============================================================================
+# CHAT HTTP API — kênh text độc lập với phiên thoại WebRTC
+# =============================================================================
+
+def _http_response(status: int, body: dict, extra_headers: dict | None = None) -> bytes:
+    reason = {
+        200: "OK",
+        204: "No Content",
+        400: "Bad Request",
+        404: "Not Found",
+        405: "Method Not Allowed",
+        413: "Payload Too Large",
+        500: "Internal Server Error",
+    }.get(status, "OK")
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": str(len(payload)),
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Connection": "close",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    header_blob = "".join(f"{key}: {value}\r\n" for key, value in headers.items())
+    return f"HTTP/1.1 {status} {reason}\r\n{header_blob}\r\n".encode("utf-8") + payload
+
+
+async def _handle_chat_http(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    try:
+      raw_headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5)
+    except Exception:
+      writer.close()
+      await writer.wait_closed()
+      return
+
+    try:
+        header_text = raw_headers.decode("iso-8859-1")
+        request_line, *header_lines = header_text.split("\r\n")
+        method, path, _ = request_line.split(" ", 2)
+        headers = {}
+        for line in header_lines:
+            if ":" in line:
+                key, value = line.split(":", 1)
+                headers[key.strip().lower()] = value.strip()
+    except Exception:
+        writer.write(_http_response(400, {"error": "Invalid HTTP request"}))
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    if method == "OPTIONS":
+        writer.write(_http_response(204, {}))
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    if method != "POST" or path != "/chat":
+        writer.write(_http_response(404 if path != "/chat" else 405, {"error": "Not found"}))
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    content_length = int(headers.get("content-length", "0") or "0")
+    if content_length > 16_384:
+        writer.write(_http_response(413, {"error": "Message is too large"}))
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    body = await reader.readexactly(content_length) if content_length else b"{}"
+    try:
+        payload = json.loads(body.decode("utf-8"))
+        message = str(payload.get("message", "")).strip()
+    except Exception:
+        message = ""
+
+    if not message:
+        writer.write(_http_response(400, {"error": "message is required"}))
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    try:
+        async with chat_lock:
+            result = await Runner.run(agent, message, max_turns=8)
+        writer.write(_http_response(200, {"reply": str(result.final_output or "")}))
+    except Exception as exc:
+        print(f"[CHAT] Lỗi xử lý chat: {exc}")
+        writer.write(_http_response(500, {"error": str(exc)}))
+
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
+
+
+async def start_chat_http_server(host: str = "localhost", port: int = 8001):
+    server = await asyncio.start_server(_handle_chat_http, host, port)
+    print(f"[CHAT] Text chat API sẵn sàng tại http://{host}:{port}/chat")
+    async with server:
+        await server.serve_forever()
+
+
+# =============================================================================
 # ENTRYPOINT — Chạy bridge server + agent loop song song
 # =============================================================================
 
 async def main():
     # Khởi động WebSocket bridge server ở background
     bridge_task = asyncio.create_task(bridge.start(host="localhost", port=8000))
+    chat_task = asyncio.create_task(start_chat_http_server(host="localhost", port=8001))
     print("[SERVER] Bridge WebSocket đang lắng nghe tại ws://localhost:8000")
 
     # (Tùy chọn) Chạy demo loop để test agent qua terminal
     # from agents import run_demo_loop
     # await run_demo_loop(agent)
 
-    await bridge_task
+    await asyncio.gather(bridge_task, chat_task)
 
 
 if __name__ == "__main__":
