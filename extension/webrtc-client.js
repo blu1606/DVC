@@ -76,7 +76,9 @@ const clickElementTool = tool({
       target.includes("submitcbt") ||
       target.includes("submitldap") ||
       target.includes("choosemst") ||
-      target.includes("continueaftermst");
+      target.includes("continueaftermst") ||
+      target.includes("nop-hoso") ||
+      target.includes("nophoso");
 
     if (needsConfirmation && user_confirmed !== true) {
       return {
@@ -253,6 +255,7 @@ export async function initializeVoiceAssistant(onEvent) {
       "   - Khi ở trang https://dichvucong.gdt.gov.vn/tthc/login hoặc /tthc/home, hãy gọi `read_tax_login_state` sau mỗi lần chuyển modal. Snapshot này đã lọc CSRF, mật khẩu, captcha và MST thô.\n" +
       "   - Tuyệt đối không yêu cầu người dân đọc mật khẩu hoặc captcha cho AI; hãy hướng dẫn bác tự nhập captcha/mật khẩu trên trang. Không tìm cách giải captcha.\n" +
       "   - Trước khi bấm nút Đăng nhập, chọn/dùng MST đã lưu, hoặc bấm Tiếp tục sau khi chọn MST, hãy hỏi xác nhận rõ ràng. Chỉ truyền `user_confirmed: true` vào `click_element` sau khi bác đồng ý.\n" +
+      "   - Khi tìm thủ tục 2.002233, link chữ tên thủ tục chỉ mở trang chi tiết. Để nộp hồ sơ phải bấm icon folder màu xanh với selector `a.nop-hoso-btn[ma-tthc='2.002233']`; hãy hỏi xác nhận trước và truyền `user_confirmed: true`.\n" +
       "   - Hướng dẫn người dân giải quyết cây quyết định chọn cơ quan thuế bằng các câu hỏi đơn giản, ví dụ: 'Năm ngoái bác làm ở mấy công ty?', 'Hiện tại bác có đang ký hợp đồng lao động ở đâu không?', 'Các công ty cũ đã khấu trừ thuế của bác chưa?'. Sau đó gọi click_element để chọn đúng các ô điều kiện: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n" +
       "   - Điền các số liệu từ Chứng từ khấu trừ thuế TNCN (Mã số thuế, thu nhập chịu thuế, số thuế đã khấu trừ, số tiền đề nghị hoàn, số tài khoản, ngân hàng) bằng tool fill_field.\n" +
       "6. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ (fill_field, click_element, select_option) và luôn truyền selector tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền. Khi điền địa chỉ hành chính 3 cấp, hãy luôn ưu tiên sử dụng `fill_address_cascade` thay vì điền lẻ tẻ. Bác cũng có thể gọi `bulk_fill_profile` để điền nhanh các thông tin cá nhân cơ bản.\n" +

@@ -102,6 +102,10 @@ const SELECT_DECLARATION_TEMPLATE = {
   headings: [
     { tag: "h1", text: "Chọn tờ khai quyết toán thuế" }
   ],
+  instructionsForAgent:
+    "Trên danh sách thủ tục, link chữ của thủ tục 2.002233 chỉ mở trang chi tiết. " +
+    "Muốn nộp hồ sơ phải bấm icon folder màu xanh: a.nop-hoso-btn[ma-tthc='2.002233']. " +
+    "Hỏi xác nhận người dùng trước khi bấm icon nộp hồ sơ.",
   formFields: [
     { tag: "select", id: "selectToKhai", name: "modalSelectMaToKhai", label: "Tờ khai quyết toán thuế", required: true, selector: "select#selectToKhai", options: [
       { text: "02/QTT-TNCN - Tờ khai quyết toán thuế thu nhập cá nhân (TT80/2021)", value: "952" },
@@ -110,7 +114,8 @@ const SELECT_DECLARATION_TEMPLATE = {
     ]}
   ],
   buttons: [
-    { id: "btn-nop-hoso-2.002233", name: "nopHoso2.002233", text: "Nộp hồ sơ Quyết toán thuế", selector: "a.nop-hoso-btn[ma-tthc='2.002233']" },
+    { id: "link-detail-2.002233", name: "detail2.002233", text: "Xem chi tiết thủ tục 2.002233", selector: "a[href='/tthc/thu-tuc-hanh-chinh/chi-tiet-tthc?maTTHC=2.002233']", actionType: "detail_only" },
+    { id: "btn-nop-hoso-2.002233", name: "nopHoso2.002233", text: "Nộp hồ sơ Quyết toán thuế bằng icon folder xanh", selector: "a.nop-hoso-btn[ma-tthc='2.002233']", actionType: "submit_procedure", icon: "bi bi-folder-symlink-fill", requiresConfirmation: true },
     { id: "btn-select-tokhai-trigger", name: "selectToKhaiTrigger", text: "Mở danh sách tờ khai", selector: "button[data-id='selectToKhai']" },
     { id: "btn-continue", name: "continue", text: "Tiếp tục", selector: "button[onclick='selectData()']" }
   ]
