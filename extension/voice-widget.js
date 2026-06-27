@@ -17,10 +17,10 @@
     }
     .thongdvc-floating-btn {
       position: fixed;
-      bottom: 25px;
-      right: 25px;
-      width: 56px;
-      height: 56px;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      right: max(20px, env(safe-area-inset-right));
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
       background: linear-gradient(135deg, #10b981, #059669);
       border: none;
@@ -46,12 +46,12 @@
     .thongdvc-panel {
       position: fixed;
       bottom: 95px;
-      right: 25px;
-      width: 360px;
-      height: 480px;
+      right: max(20px, env(safe-area-inset-right));
+      width: min(380px, calc(100vw - 32px));
+      height: min(520px, calc(100vh - 112px));
       background: rgba(15, 23, 42, 0.95);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
+      border-radius: 12px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(16px);
       z-index: 2147483644;
@@ -69,7 +69,7 @@
       pointer-events: auto;
     }
     .thongdvc-header {
-      padding: 16px;
+      padding: 14px 12px 14px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
@@ -80,11 +80,13 @@
       font-weight: 700;
       font-size: 15px;
       color: #10b981;
+      line-height: 1.3;
     }
     .thongdvc-status {
-      font-size: 11px;
+      font-size: 13px;
       color: #94a3b8;
-      margin-top: 2px;
+      margin-top: 4px;
+      line-height: 1.35;
     }
     .thongdvc-log {
       flex: 1;
@@ -123,22 +125,72 @@
       font-size: 12.5px;
       max-width: 95%;
     }
+    .thongdvc-bubble-warning {
+      background: rgba(251, 191, 36, 0.12);
+      border-left: 3px solid #fbbf24;
+      color: #fde68a;
+      align-self: center;
+      font-size: 13px;
+      max-width: 95%;
+    }
     .thongdvc-footer {
-      padding: 16px;
+      padding: 12px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
+      flex-direction: column;
       gap: 10px;
-      background: rgba(30, 41, 59, 0.5);
+      background: rgba(30, 41, 59, 0.75);
+    }
+    .thongdvc-input-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .thongdvc-chat-input {
+      flex: 1;
+      min-width: 0;
+      min-height: 44px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(15, 23, 42, 0.65);
+      color: #f8fafc;
+      font-size: 15px;
+      outline: none;
+    }
+    .thongdvc-chat-input::placeholder {
+      color: #94a3b8;
+    }
+    .thongdvc-chat-input:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+    }
+    .thongdvc-send-btn {
+      min-width: 72px;
+      min-height: 48px;
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 0 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+    .thongdvc-send-btn:hover {
+      background: #059669;
     }
     .thongdvc-btn {
       flex: 1;
-      padding: 10px;
+      min-height: 48px;
+      padding: 10px 12px;
       border-radius: 8px;
       border: none;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 13px;
+      font-size: 15px;
       text-align: center;
     }
     .thongdvc-btn-start {
@@ -156,12 +208,51 @@
       background: #dc2626;
     }
     .thongdvc-close {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
       cursor: pointer;
       color: #94a3b8;
       font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .thongdvc-close:hover {
       color: white;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .thongdvc-floating-btn:focus-visible,
+    .thongdvc-close:focus-visible,
+    .thongdvc-btn:focus-visible,
+    .thongdvc-send-btn:focus-visible {
+      outline: 3px solid rgba(16, 185, 129, 0.5);
+      outline-offset: 2px;
+    }
+    @media (max-width: 480px) {
+      .thongdvc-panel {
+        left: 12px;
+        right: 12px;
+        bottom: 88px;
+        width: auto;
+        height: min(70vh, 520px);
+      }
+      .thongdvc-bubble {
+        max-width: 92%;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .thongdvc-floating-btn,
+      .thongdvc-panel,
+      .thongdvc-btn,
+      .thongdvc-send-btn {
+        transition: none;
+      }
+      .thongdvc-floating-btn.active {
+        animation: none;
+      }
     }
     @keyframes thongdvc-pulse {
       0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
@@ -177,26 +268,26 @@
   widgetContainer.className = "thongdvc-widget-container";
 
   widgetContainer.innerHTML = `
-    <button class="thongdvc-floating-btn" id="thongdvc-mic-btn" title="Mở Trợ lý giọng nói">🎙️</button>
-    <div class="thongdvc-panel" id="thongdvc-panel">
+    <button class="thongdvc-floating-btn" id="thongdvc-mic-btn" type="button" title="Mở Trợ lý giọng nói" aria-label="Mở trợ lý giọng nói" aria-expanded="false" aria-controls="thongdvc-panel">🎙️</button>
+    <div class="thongdvc-panel" id="thongdvc-panel" role="dialog" aria-modal="false" aria-labelledby="thongdvc-title">
       <div class="thongdvc-header">
         <div>
-          <div class="thongdvc-title">👵👴 Trợ lý giọng nói EasyDVC</div>
-          <div class="thongdvc-status" id="thongdvc-status">Nhấn Bắt đầu để kết nối thoại</div>
+          <div class="thongdvc-title" id="thongdvc-title">👵👴 Trợ lý giọng nói EasyDVC</div>
+          <div class="thongdvc-status" id="thongdvc-status" role="status" aria-live="polite">Nhấn Bắt đầu để kết nối thoại</div>
         </div>
-        <span class="thongdvc-close" id="thongdvc-close-btn">✕</span>
+        <button class="thongdvc-close" id="thongdvc-close-btn" type="button" aria-label="Đóng trợ lý">✕</button>
       </div>
       <div class="thongdvc-log" id="thongdvc-log">
         <div class="thongdvc-bubble thongdvc-bubble-agent">
           <strong>Trợ lý:</strong> Chào bác! Cháu là trợ lý Dịch vụ công. Bác hãy nhấn "Bắt đầu nói" hoặc gõ câu hỏi bên dưới nhé.
         </div>
       </div>
-      <div class="thongdvc-footer" style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(30, 41, 59, 0.75);">
-        <div style="display: flex; gap: 8px; width: 100%;">
-          <input type="text" id="thongdvc-chat-input" placeholder="Hoặc bác gõ câu hỏi vào đây..." style="flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(15,23,42,0.6); color: white; font-size: 13px; outline: none;" />
-          <button id="thongdvc-send-btn" style="background: #10b981; color: white; border: none; padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s;">Gửi</button>
+      <div class="thongdvc-footer">
+        <div class="thongdvc-input-row">
+          <input type="text" id="thongdvc-chat-input" class="thongdvc-chat-input" placeholder="Gõ câu hỏi cho trợ lý..." aria-label="Nhập câu hỏi cho trợ lý" autocomplete="off" />
+          <button id="thongdvc-send-btn" class="thongdvc-send-btn" type="button">Gửi</button>
         </div>
-        <button class="thongdvc-btn thongdvc-btn-start" id="thongdvc-toggle-action" style="width: 100%; margin: 0;">Bắt đầu nói</button>
+        <button class="thongdvc-btn thongdvc-btn-start" id="thongdvc-toggle-action" type="button">Bắt đầu nói</button>
       </div>
     </div>
   `;
@@ -207,6 +298,7 @@
   let currentStreamingBubble = null;
   let currentStreamingText = "";
   let functionCallNames = {};
+  let isSendingChat = false;
   const micBtn = document.getElementById("thongdvc-mic-btn");
   const panel = document.getElementById("thongdvc-panel");
   const closeBtn = document.getElementById("thongdvc-close-btn");
@@ -217,20 +309,40 @@
   const logEl = document.getElementById("thongdvc-log");
 
   // Toggle Panel open/close
-  function togglePanel() {
-    panel.classList.toggle("show");
+  function setStatus(text, color) {
+    statusEl.innerText = text;
+    statusEl.style.color = color;
+  }
+
+  function togglePanel(force) {
+    const shouldShow = typeof force === "boolean" ? force : !panel.classList.contains("show");
+    panel.classList.toggle("show", shouldShow);
+    micBtn.setAttribute("aria-expanded", String(shouldShow));
+    if (shouldShow) {
+      setTimeout(() => chatInput.focus({ preventScroll: true }), 0);
+    }
   }
 
   micBtn.addEventListener("click", togglePanel);
-  closeBtn.addEventListener("click", togglePanel);
+  closeBtn.addEventListener("click", () => togglePanel(false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && panel.classList.contains("show")) {
+      togglePanel(false);
+      micBtn.focus();
+    }
+  });
 
   // Append a bubble to log
   function appendLog(sender, text, type) {
     const bubble = document.createElement("div");
     bubble.className = `thongdvc-bubble thongdvc-bubble-${type}`;
-    bubble.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    const label = document.createElement("strong");
+    label.textContent = `${sender}:`;
+    bubble.appendChild(label);
+    bubble.appendChild(document.createTextNode(` ${text}`));
     logEl.appendChild(bubble);
     logEl.scrollTop = logEl.scrollHeight;
+    return bubble;
   }
 
   // Real-time AI response delta streaming
@@ -259,11 +371,9 @@
   function onVoiceEvent(msg) {
     if (msg.type === "status") {
       if (msg.status === "ai_speaking") {
-        statusEl.innerText = "Trợ lý đang nói...";
-        statusEl.style.color = "#10b981";
+        setStatus("Trợ lý đang nói...", "#10b981");
       } else if (msg.status === "ai_stopped") {
-        statusEl.innerText = "Đang lắng nghe bác...";
-        statusEl.style.color = "#60a5fa";
+        setStatus("Đang lắng nghe bác...", "#60a5fa");
       }
     } else if (msg.type === "agent_end") {
       const finalText = (msg.text || "").trim();
@@ -272,9 +382,8 @@
       }
       finalizeAiStreaming();
     } else if (msg.type === "error") {
-      statusEl.innerText = "Lỗi kết nối!";
-      statusEl.style.color = "#f87171";
-      appendLog("Lỗi", msg.error.message || msg.error, "error");
+      setStatus("Lỗi kết nối!", "#f87171");
+      appendLog("Lỗi", (msg.error && msg.error.message) || msg.error || "Không thể kết nối.", "error");
       stopVoiceSession();
     } else if (msg.type === "transport_event") {
       const event = msg.event;
@@ -298,31 +407,27 @@
       // 4. Real-time tool call status (e.g. AI calling a form filling function)
       if (event.type === "response.function_call_arguments.done") {
         const toolName = functionCallNames[event.call_id] || "unknown_tool";
-        appendLog("Hệ thống", `AI đang thực hiện lệnh: <code>${toolName}</code>`, "error"); // Use red/special bubble
+        appendLog("Hệ thống", `AI đang thực hiện lệnh: ${toolName}`, "warning");
       }
     }
   }
 
   // Start Session
   async function startVoiceSession() {
-    statusEl.innerText = "Đang kết nối thoại...";
-    statusEl.style.color = "#fbbf24";
+    setStatus("Đang kết nối thoại...", "#fbbf24");
     toggleBtn.disabled = true;
 
     try {
       session = await window.WebRTCClient.initializeVoiceAssistant(onVoiceEvent);
       
-      statusEl.innerText = "Đang lắng nghe bác...";
-      statusEl.style.color = "#60a5fa";
+      setStatus("Đang lắng nghe bác...", "#60a5fa");
       
       micBtn.classList.add("active");
       toggleBtn.innerText = "Dừng thoại";
       toggleBtn.className = "thongdvc-btn thongdvc-btn-stop";
       toggleBtn.disabled = false;
-      appendLog("Hệ thống", "Đã kết nối thoại thành công.", "error");
+      appendLog("Hệ thống", "Đã kết nối thoại thành công.", "warning");
     } catch (err) {
-      statusEl.innerText = "Lỗi: " + err.message;
-      statusEl.style.color = "#f87171";
       toggleBtn.innerText = "Bắt đầu nói";
       toggleBtn.className = "thongdvc-btn thongdvc-btn-start";
       toggleBtn.disabled = false;
@@ -332,8 +437,12 @@
       const errMsg = (err.message || "").toLowerCase();
       const errName = (err.name || "").toLowerCase();
       if (errMsg.includes("permission") || errMsg.includes("dismissed") || errName.includes("notallowederror")) {
-        appendLog("Lỗi", "Vui lòng cấp quyền Micro trong tab mới để tiếp tục.", "error");
+        setStatus("Chưa có quyền micro.", "#f87171");
+        appendLog("Lỗi", "Vui lòng cấp quyền micro trong tab mới để tiếp tục.", "error");
         window.open(chrome.runtime.getURL("permission.html"));
+      } else {
+        setStatus("Không kết nối được trợ lý thoại.", "#f87171");
+        appendLog("Lỗi", err.message || "Không thể kết nối trợ lý thoại.", "error");
       }
     }
   }
@@ -345,11 +454,10 @@
       session = null;
     }
     micBtn.classList.remove("active");
-    statusEl.innerText = "Đã ngắt kết nối thoại.";
-    statusEl.style.color = "#94a3b8";
+    setStatus("Đã ngắt kết nối thoại.", "#94a3b8");
     toggleBtn.innerText = "Bắt đầu nói";
     toggleBtn.className = "thongdvc-btn thongdvc-btn-start";
-    appendLog("Hệ thống", "Đã dừng phiên thoại.", "error");
+    appendLog("Hệ thống", "Đã dừng phiên thoại.", "warning");
   }
 
   toggleBtn.addEventListener("click", () => {
@@ -362,18 +470,8 @@
 
   async function sendChatMessage() {
     const text = chatInput.value.trim();
-    if (!text) return;
-
-    if (!session) {
-      statusEl.innerText = "Đang kết nối thoại...";
-      statusEl.style.color = "#fbbf24";
-      try {
-        await startVoiceSession();
-      } catch (err) {
-        statusEl.innerText = "Lỗi kết nối: " + err.message;
-        statusEl.style.color = "#f87171";
-        return;
-      }
+    if (!text || isSendingChat) {
+      return;
     }
 
     let textToSend = text;
@@ -415,8 +513,41 @@
       chatInput.value = "";
     }
 
-    if (session && typeof session.sendMessage === "function") {
-      session.sendMessage(textToSend);
+    isSendingChat = true;
+    sendBtn.disabled = true;
+    sendBtn.innerText = "Đợi...";
+    setStatus(session ? "Đang gửi tin nhắn..." : "Đang chat với trợ lý...", "#fbbf24");
+    const pendingBubble = appendLog("Trợ lý", "Đang xử lý...", "agent");
+
+    try {
+      const response = await fetch("http://localhost:8001/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: textToSend })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      pendingBubble.remove();
+      appendLog("Trợ lý", data.reply || "Cháu chưa có câu trả lời phù hợp.", "agent");
+      setStatus(session ? "Đang lắng nghe bác..." : "Chat sẵn sàng. Thoại đang tắt.", session ? "#60a5fa" : "#94a3b8");
+    } catch (err) {
+      pendingBubble.remove();
+      appendLog(
+        "Lỗi",
+        "Không gửi được tin nhắn. Bác kiểm tra backend chat ở http://localhost:8001/chat rồi thử lại.",
+        "error"
+      );
+      setStatus("Chat chưa kết nối được backend.", "#f87171");
+      chatInput.value = text;
+      console.error("[EasyDVC] Chat error:", err);
+    } finally {
+      isSendingChat = false;
+      sendBtn.disabled = false;
+      sendBtn.innerText = "Gửi";
     }
   }
 

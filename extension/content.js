@@ -221,6 +221,16 @@ function highlightElement(el) {
   }, 1500);
 }
 
+function unmaskValueIfAvailable(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  if (window.WebRTCClient && typeof window.WebRTCClient.unmask === "function") {
+    return window.WebRTCClient.unmask(value);
+  }
+  return value;
+}
+
 function sanitizeHTML(htmlString) {
   // Loại bỏ thẻ <script> trước khi tiêm vào DOM
   return htmlString.replace(
@@ -413,10 +423,12 @@ async function executeDomAction(command) {
   element.focus?.();
 
   if (command.action === "type_input") {
-    setNativeValue(element, command.text || "");
+    const valueToType = unmaskValueIfAvailable(command.text || "");
+    setNativeValue(element, valueToType);
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
     element.blur?.();
+    command = { ...command, text: valueToType };
   } else if (command.action === "click_button") {
     element.click();
   } else if (command.action === "select_option") {
