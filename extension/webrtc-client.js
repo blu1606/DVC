@@ -62,11 +62,11 @@ const fillFieldTool = tool({
 
 const clickElementTool = tool({
   name: "click_element",
-  description: "Click chuột vào một phần tử tương tác trên trang. Với đăng nhập thuế, bấm Đăng nhập hoặc Tiếp tục sau MST chỉ khi người dùng vừa xác nhận.",
+  description: "Click chuột vào một phần tử tương tác trên trang. Với đăng nhập thuế hoặc nộp hồ sơ, chỉ bấm sau khi người dùng vừa xác nhận.",
   parameters: z.object({
     field_name: z.string().describe("Tên ngữ nghĩa của nút cần click (btn-submit, btn-draft)."),
     selector: z.string().optional().describe("CSS selector của nút cần click (được lấy từ read_page_content). Nếu có hãy truyền tham số này để click chính xác."),
-    user_confirmed: z.boolean().optional().describe("Đặt true chỉ sau khi người dùng xác nhận rõ ràng thao tác nhạy cảm như Đăng nhập hoặc Tiếp tục sau khi chọn MST.")
+    user_confirmed: z.boolean().optional().describe("Đặt true chỉ sau khi người dùng xác nhận rõ ràng thao tác nhạy cảm như Đăng nhập, chọn/dùng MST, Tiếp tục sau MST, hoặc Nộp hồ sơ.")
   }),
   async execute({ field_name, selector, user_confirmed }) {
     console.log("[TOOL] Client click_element:", field_name, selector, user_confirmed);
@@ -83,9 +83,10 @@ const clickElementTool = tool({
     if (needsConfirmation && user_confirmed !== true) {
       return {
         status: "error",
-        message: "Cần hỏi và nhận xác nhận rõ ràng từ người dùng trước khi bấm đăng nhập hoặc tiếp tục sau khi chọn MST."
+        message: "Cần hỏi và nhận xác nhận rõ ràng từ người dùng trước khi bấm đăng nhập, chọn MST, tiếp tục sau MST, hoặc nộp hồ sơ."
       };
     }
+
     return await sendCommandToActiveTab("click_button", { field_name, selector });
   }
 });
@@ -195,7 +196,7 @@ const bulkFillProfileTool = tool({
 
 const readPageContentTool = tool({
   name: "read_page_content",
-  description: "Đọc cấu trúc, tiêu đề và các trường thông tin đã được lọc an toàn của trang web hiện tại để hỗ trợ người dùng. Không trả raw HTML.",
+  description: "Đọc cấu trúc, tiêu đề và các trường thông tin (form fields, buttons, dropdowns) của trang web hiện tại để hỗ trợ người dùng.",
   parameters: z.object({}),
   async execute() {
     console.log("[TOOL] Client read_page_content");
@@ -231,35 +232,45 @@ const scrollPageTool = tool({
  * @returns {Promise<RealtimeSession>} Session đã kết nối, sẵn sàng giao tiếp.
  */
 export async function initializeVoiceAssistant(onEvent) {
-  const tokenResponse = await fetch("http://localhost:8000/token");
-  if (!tokenResponse.ok) {
-    throw new Error(`Không thể lấy token: ${tokenResponse.status}`);
+  let tokenData;
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+        resolve(res || { status: "error", message: "No response from background script" });
+      });
+    });
+    if (response.status === "error") {
+      throw new Error(`Không thể lấy token qua background: ${response.message}`);
+    }
+    tokenData = response.data;
+  } else {
+    const tokenResponse = await fetch("http://localhost:8000/token");
+    if (!tokenResponse.ok) {
+      throw new Error(`Không thể lấy token trực tiếp: ${tokenResponse.status}`);
+    }
+    tokenData = await tokenResponse.json();
   }
-  const tokenData = await tokenResponse.json();
   const ephemeralKey = tokenData.value || (tokenData.client_secret && tokenData.client_secret.value);  // dạng "ek_..."
 
   // Tạo RealtimeAgent với các tools đã định nghĩa
   const agent = new RealtimeAgent({
-    name: "EasyDVC Assistant",
+    name: "ThôngDVC Assistant",
     instructions:
       "Bạn là trợ lý dịch vụ công hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến.\n" +
-      "1. Khi bắt đầu hoặc khi trang thay đổi, hãy luôn gọi `check_login_status` đầu tiên. Nếu kết quả `logged_in` là false, hãy thông báo thân thiện và gọi `navigate_to_login` để tự động điều hướng người dân sang trang đăng nhập. Khi ở trang đăng nhập của Tổng cục Thuế, hãy giải thích và khuyên người dân: 'Hệ thống có 3 phương thức đăng nhập là Tài khoản điện tử, Tài khoản định danh điện tử VNeID và SIM ký số. Cháu khuyên bác nên chọn đối tượng Cá nhân và dùng phương thức Tài khoản điện tử nhé. Bác chỉ cần mở ứng dụng eTax Mobile quét mã QR trên màn hình là đăng nhập được ngay ạ!'.\n" +
-      "2. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không.\n" +
-      "   - Chúng ta hỗ trợ trực tiếp: \n" +
-      "     * 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru\n" +
-      "     * 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt\n" +
-      "     * 'Quyết toán thuế / Hoàn thuế TNCN' (thủ tục 2.002233) tại /dvc-tthc-quyet-toan-thue và /test-dvc-tax.html\n" +
-      "3. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ (Ask Back) lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n" +
-      "4. Nếu dịch vụ ĐƯỢC hỗ trợ: Hãy lập kế hoạch, gọi `inject_custom_ui` để hiển thị checklist hướng dẫn lên màn hình, tự động điều hướng hoặc hướng dẫn người dân vào đúng trang tờ khai.\n" +
-      "5. Khi thực hiện thủ tục Quyết toán thuế TNCN (Mã 2.002233):\n" +
+      "1. Khi vừa bắt đầu phiên thoại hoặc khi chỉ nhận được cấu trúc trang, hãy chào ngắn gọn, nói bác đang ở trang nào, rồi hỏi bác muốn làm thủ tục gì hoặc cần điền phần nào. Không tự gọi `check_login_status` khi vừa bắt đầu.\n" +
+      "2. Chỉ gọi `check_login_status` khi bác đã chọn một thủ tục cụ thể hoặc yêu cầu thao tác như điền hồ sơ, nộp hồ sơ, đăng nhập, kiểm tra trạng thái đăng nhập. Nếu chưa đăng nhập, hãy hỏi xin phép trước khi gọi `navigate_to_login`; không tự chuyển trang khi bác chưa đồng ý rõ ràng.\n" +
+      "3. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không (Chúng ta hỗ trợ: 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru, và 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt).\n" +
+      "4. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n" +
+      "5. Nếu dịch vụ ĐƯỢC hỗ trợ: Hãy lập kế hoạch, gọi `inject_custom_ui` để hiển thị checklist 4 bước hướng dẫn lên màn hình, tự động điều hướng hoặc hướng dẫn người dân vào đúng trang tờ khai sau khi đã rõ ý định của bác.\n" +
+      "6. Khi thực hiện thủ tục Quyết toán thuế TNCN (Mã 2.002233):\n" +
       "   - Khi ở trang https://dichvucong.gdt.gov.vn/tthc/login hoặc /tthc/home, hãy gọi `read_tax_login_state` sau mỗi lần chuyển modal. Snapshot này đã lọc CSRF, mật khẩu, captcha và MST thô.\n" +
       "   - Tuyệt đối không yêu cầu người dân đọc mật khẩu hoặc captcha cho AI; hãy hướng dẫn bác tự nhập captcha/mật khẩu trên trang. Không tìm cách giải captcha.\n" +
       "   - Trước khi bấm nút Đăng nhập, chọn/dùng MST đã lưu, hoặc bấm Tiếp tục sau khi chọn MST, hãy hỏi xác nhận rõ ràng. Chỉ truyền `user_confirmed: true` vào `click_element` sau khi bác đồng ý.\n" +
       "   - Khi tìm thủ tục 2.002233, link chữ tên thủ tục chỉ mở trang chi tiết. Để nộp hồ sơ phải bấm icon folder màu xanh với selector `a.nop-hoso-btn[ma-tthc='2.002233']`; hãy hỏi xác nhận trước và truyền `user_confirmed: true`.\n" +
       "   - Hướng dẫn người dân giải quyết cây quyết định chọn cơ quan thuế bằng các câu hỏi đơn giản, ví dụ: 'Năm ngoái bác làm ở mấy công ty?', 'Hiện tại bác có đang ký hợp đồng lao động ở đâu không?', 'Các công ty cũ đã khấu trừ thuế của bác chưa?'. Sau đó gọi click_element để chọn đúng các ô điều kiện: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n" +
       "   - Điền các số liệu từ Chứng từ khấu trừ thuế TNCN (Mã số thuế, thu nhập chịu thuế, số thuế đã khấu trừ, số tiền đề nghị hoàn, số tài khoản, ngân hàng) bằng tool fill_field.\n" +
-      "6. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ (fill_field, click_element, select_option) và luôn truyền selector tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền. Khi điền địa chỉ hành chính 3 cấp, hãy luôn ưu tiên sử dụng `fill_address_cascade` thay vì điền lẻ tẻ. Bác cũng có thể gọi `bulk_fill_profile` để điền nhanh các thông tin cá nhân cơ bản.\n" +
-      "7. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi.",
+      "7. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ và luôn truyền selector hoặc semanticId tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền.\n" +
+      "8. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi.",
     voice: "alloy",
     tools: [
       fillFieldTool,
@@ -278,23 +289,20 @@ export async function initializeVoiceAssistant(onEvent) {
   });
 
   const session = new RealtimeSession(agent, {
-    apiKey: ephemeralKey,
+    apiKey:    ephemeralKey,
     transport: "webrtc",
-    model: "gpt-realtime-2",
+    model:     "gpt-realtime-2",
     config: {
-      inputAudioTranscription: {
-        model: "whisper-1"
-      },
       audio: {
         input: {
           transcription: {
-            model: "whisper-1"
+            model: "gpt-4o-transcribe",
+            language: "vi",
+            prompt: "Người nói dùng tiếng Việt trong ngữ cảnh dịch vụ công Việt Nam, biểu mẫu hành chính, căn cước công dân, bảo hiểm y tế, thường trú, tạm trú."
           },
           turnDetection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
+            type: "semantic_vad",
+            eagerness: "medium",
           },
         },
       },
@@ -311,15 +319,17 @@ export async function initializeVoiceAssistant(onEvent) {
       console.log("[EasyDVC] Đã gửi cấu trúc trang hiện tại cho Agent.");
       session.sendMessage(
         `Hệ thống: Người dùng vừa kết nối thoại. Dưới đây là cấu trúc trang web hiện tại bác đang xem (Bác KHÔNG cần đọc to hay lặp lại thông tin này trừ khi được hỏi):\n` +
+        `Frame hiện tại:\n${JSON.stringify(domSnapshot.frame)}\n` +
         `Tiêu đề trang: ${domSnapshot.page.title}\n` +
         `Địa chỉ URL: ${domSnapshot.page.url}\n` +
-        `Chế độ snapshot: ${domSnapshot.page.mode || "unknown"}\n` +
+        `Chế độ snapshot: ${domSnapshot.page.mode || "scrape"}\n` +
         `Trạng thái trang: ${domSnapshot.page.pageState || "unknown"}\n` +
-        `Lưu ý an toàn: ${domSnapshot.page.instructionsForAgent || "Không có"}\n` +
+        `Hướng dẫn an toàn theo trang: ${domSnapshot.page.instructionsForAgent || ""}\n` +
         `Các thẻ tiêu đề:\n${JSON.stringify(domSnapshot.page.headings)}\n` +
         `Các trường nhập liệu:\n${JSON.stringify(domSnapshot.page.formFields)}\n` +
-        `Các nút bấm:\n${JSON.stringify(domSnapshot.page.buttons)}\n\n` +
-        `Hãy chào bác một cách thân thiện (dành cho người cao tuổi Việt Nam), cho bác biết bác đang ở trang nào, và hỏi bác xem cần cháu giúp điền thông tin gì.`
+        `Các nút bấm:\n${JSON.stringify(domSnapshot.page.buttons)}\n` +
+        `Các iframe con:\n${JSON.stringify(domSnapshot.childFrames || [])}\n\n` +
+        `Hãy chào bác một cách thân thiện, cho bác biết bác đang ở trang nào, và hỏi bác muốn làm thủ tục gì hoặc cần cháu giúp phần nào. Không gọi công cụ nào ở lượt chào đầu tiên này.`
       );
     }
   } catch (err) {

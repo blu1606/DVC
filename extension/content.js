@@ -84,27 +84,34 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleCommand(command) {
   console.log("[ThôngDVC] Nhận lệnh:", command);
-  const { action, field_name, text, value, html, mount, mode } = command;
+  const { action, html, mount, mode } = command;
+  const elementActions = new Set(["type_input", "click_button", "select_option"]);
+  const pageActions = new Set([
+    "inject_html",
+    "read_dom",
+    "read_tax_login_state",
+    "scroll",
+    "check_login",
+    "navigate_to_login",
+    "update_checklist",
+    "show_pii_confirm",
+    "fill_address_cascade",
+    "bulk_fill_profile",
+  ]);
 
-  // Lệnh tiêm Shadow DOM UI (Phase 05)
-  if (action === "inject_html") {
-    console.log("[ThôngDVC] Thực hiện inject HTML vào shadow DOM");
-    return injectShadowUI({ html, mount, mode });
-  }
-
-  // Lệnh đọc cấu trúc DOM hiện tại
-  if (action === "read_dom") {
-    console.log("[ThôngDVC] Thực hiện đọc cấu trúc DOM");
-    try {
-      return getPageDOMStructure();
-    } catch (err) {
-      return { status: "error", message: err.message };
+  try {
+    if (action === "inject_html") {
+      console.log("[ThôngDVC] Thực hiện inject HTML vào shadow DOM");
+      return injectShadowUI({ html, mount, mode });
     }
-  }
 
-  if (action === "read_tax_login_state") {
-    console.log("[ThôngDVC] Đọc trạng thái đăng nhập thuế");
-    try {
+    if (action === "read_dom") {
+      console.log("[ThôngDVC] Thực hiện đọc cấu trúc DOM");
+      return getPageDOMStructure();
+    }
+
+    if (action === "read_tax_login_state") {
+      console.log("[ThôngDVC] Đọc trạng thái đăng nhập thuế");
       const snapshot = getPageDOMStructure();
       if (snapshot.status !== "success") {
         return snapshot;
@@ -115,15 +122,10 @@ async function handleCommand(command) {
         mode: snapshot.page.mode || "scrape",
         page: snapshot.page
       };
-    } catch (err) {
-      return { status: "error", message: err.message };
     }
-  }
 
-  // Lệnh cuộn trang
-  if (action === "scroll") {
-    console.log("[ThôngDVC] Thực hiện cuộn trang:", command.direction);
-    try {
+    if (action === "scroll") {
+      console.log("[ThôngDVC] Thực hiện cuộn trang:", command.direction);
       const direction = command.direction;
       const distance = window.innerHeight * 0.6;
       window.scrollBy({
@@ -131,147 +133,50 @@ async function handleCommand(command) {
         behavior: "smooth"
       });
       return { status: "success" };
-    } catch (err) {
-      return { status: "error", message: err.message };
     }
-  }
 
-  // Các lệnh này không cần tìm sẵn một field DOM cụ thể.
-  // Đặt trước selector lookup để không bị chặn bởi guard "không tìm thấy element".
-  if (action === "check_login") {
-    try {
+    if (action === "check_login") {
       return checkLoginStatus();
-    } catch (err) {
-      return { status: "error", message: err.message };
     }
-  }
 
-  if (action === "navigate_to_login") {
-    try {
-      let selector = command.selector;
-      if (!selector) {
-        const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
-        if (loginBtn) {
-          selector = getUniqueSelector(loginBtn);
-        }
-      }
-
-      if (selector) {
-        const el = document.querySelector(selector);
-        if (el) {
-          el.click();
-          return { status: "success", message: `Đã click vào nút đăng nhập (${selector})` };
-        }
-      }
-
-      const origin = window.location.origin;
-      window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
-      return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
-    } catch (err) {
-      return { status: "error", message: err.message };
+    if (action === "navigate_to_login") {
+      return navigateToLogin(command.selector);
     }
-  }
 
-  if (action === "update_checklist") {
-    try {
-      const html = buildChecklistHTML(command.steps);
+    if (action === "update_checklist") {
+      const checklistHtml = buildChecklistHTML(command.steps || []);
       return injectShadowUI({
         mount: "accessibility-assistant-panel",
-        html: html,
+        html: checklistHtml,
         mode: "shadow-root"
       });
-    } catch (err) {
-      return { status: "error", message: err.message };
     }
-  }
 
-  if (action === "show_pii_confirm") {
-    try {
+    if (action === "show_pii_confirm") {
       const { masked_text, raw_text, tokens } = command;
-      const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens);
-      return { status: "success", confirmed: confirmed };
-    } catch (err) {
-      return { status: "error", message: err.message };
+      const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens || []);
+      return { status: "success", confirmed };
     }
-  }
 
-  if (action === "fill_address_cascade") {
-    try {
+    if (action === "fill_address_cascade") {
       const { province, district, ward } = command;
       return await fillAddressCascading({ province, district, ward });
-    } catch (err) {
-      return { status: "error", message: err.message };
-    }
-  }
-
-  if (action === "bulk_fill_profile") {
-    try {
-      const { profile } = command;
-      return await bulkFillProfile(profile);
-    } catch (err) {
-      return { status: "error", message: err.message };
-    }
-  }
-
-  // Xác định selector: ưu tiên selector động được gửi từ Agent, sau đó tra cứu mapping cố định
-  let selector = command.selector;
-  if (!selector && field_name) {
-    selector = FIELD_MAPPINGS[field_name];
-  }
-
-  let element = null;
-  if (selector) {
-    element = document.querySelector(selector);
-  }
-
-  // Fallback: Tìm theo ID hoặc name trùng với field_name nếu không tìm thấy bằng selector
-  if (!element && field_name) {
-    element = document.getElementById(field_name) || document.querySelector(`[name="${field_name}"]`);
-  }
-
-  if (!element) {
-    const errorMsg = `Không tìm thấy phần tử DOM cho field_name: '${field_name}' hoặc selector: '${selector || ""}'`;
-    console.warn(`[ThôngDVC] Lỗi: ${errorMsg}`);
-    return {
-      status: "error",
-      message: errorMsg,
-    };
-  }
-
-  try {
-    if (action === "type_input") {
-      element.value = text;
-      element.dispatchEvent(new Event("input",  { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-      highlightElement(element);
-      console.log(`[ThôngDVC] Điền thành công vào '${field_name || selector}' (${selector}):`, text);
-      return { status: "success" };
     }
 
-    if (action === "click_button") {
-      element.click();
-      highlightElement(element);
-      console.log(`[ThôngDVC] Click thành công vào '${field_name || selector}' (${selector})`);
-      return { status: "success" };
+    if (action === "bulk_fill_profile") {
+      return await bulkFillProfile(command.profile);
     }
 
-    if (action === "select_option") {
-      let isBootstrapSelect = false;
-      if (element.tagName === "SELECT" && (element.classList.contains("selectpicker") || element.closest(".bootstrap-select"))) {
-        isBootstrapSelect = selectOptionBootstrapSelect(element, value);
-      }
-      if (!isBootstrapSelect) {
-        element.value = value;
-        element.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      highlightElement(element);
-      console.log(`[ThôngDVC] Chọn thành công option '${value}' cho '${field_name || selector}' (${selector})`);
-      return { status: "success" };
+    if (elementActions.has(action)) {
+      return await executeDomAction(command);
     }
 
-    console.warn(`[EasyDVC] Lỗi: Hành động không hỗ trợ: ${action}`);
-    return { status: "error", message: `Hành động không hỗ trợ: ${action}` };
+    if (!pageActions.has(action)) {
+      console.warn(`[EasyDVC] Lỗi: Hành động không hỗ trợ: ${action}`);
+      return { status: "error", message: `Hành động không hỗ trợ: ${action}` };
+    }
 
+    return { status: "error", message: `Hành động chưa được xử lý: ${action}` };
   } catch (error) {
     return { status: "error", message: error.message };
   }
@@ -324,253 +229,456 @@ function sanitizeHTML(htmlString) {
   );
 }
 
-function selectOptionBootstrapSelect(selectEl, value) {
-  selectEl.value = value;
-  selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-
-  const container = selectEl.closest('.bootstrap-select') || selectEl.parentElement;
-  if (container) {
-    const button = container.querySelector('button[data-bs-toggle="dropdown"]') || container.querySelector('button.dropdown-toggle');
-    if (button) {
-      const optionIndex = Array.from(selectEl.options).findIndex(opt => opt.value === value);
-      if (optionIndex !== -1) {
-        const dropdownMenu = container.querySelector('.dropdown-menu') || document.querySelector('.dropdown-menu.show');
-        if (dropdownMenu) {
-          const item = dropdownMenu.querySelector(`[data-original-index="${optionIndex}"]`) || 
-                       dropdownMenu.querySelector(`a[id*="-${optionIndex}"]`) ||
-                       dropdownMenu.querySelectorAll('li')[optionIndex]?.querySelector('a');
-          if (item) {
-            item.click();
-            console.log(`[ThôngDVC] Đã tương tác click chọn Bootstrap Select cho option index: ${optionIndex}`);
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
+function normalizeText(value, maxLength = 160) {
+  return (value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
 
-// Ghi chú: DVC_FORM_TEMPLATES được định nghĩa toàn cục và tải từ form-templates.js
+function isVisibleElement(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+  const view = el.ownerDocument?.defaultView || window;
+  const style = view.getComputedStyle(el);
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function getElementBounds(el) {
+  const rect = el.getBoundingClientRect();
+  return {
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height)
+  };
+}
+
+function buildSemanticId(el, documentOrder = 0, framePath = getFramePath()) {
+  const tag = el.tagName.toLowerCase();
+  const id = el.id || "";
+  const name = el.getAttribute("name") || "";
+  const label = getAssociatedLabel(el, el.ownerDocument);
+  const visibleText = normalizeText(el.innerText || el.textContent || el.value || "", 40);
+  return `${framePath}::${tag}::${id || name || label || visibleText || "element"}::${documentOrder}`;
+}
+
+function getFramePath() {
+  if (window === window.top) {
+    return "top";
+  }
+
+  const path = [];
+  let current = window;
+  while (current !== window.top) {
+    const parent = current.parent;
+    const frames = Array.from(parent.frames);
+    const index = frames.indexOf(current);
+    path.unshift(`frame[${index}]`);
+    current = parent;
+  }
+  return `top>${path.join(">")}`;
+}
+
+function getFrameInfo() {
+  return {
+    framePath: getFramePath(),
+    url: window.location.href,
+    title: document.title,
+    isTop: window === window.top,
+  };
+}
+
+function getAssociatedLabel(el, rootDocument = document) {
+  const id = el.id || "";
+  if (id) {
+    const labelEl = rootDocument.querySelector(`label[for="${CSS.escape(id)}"]`);
+    if (labelEl) return normalizeText(labelEl.innerText || labelEl.textContent);
+  }
+  const parentLabel = el.closest("label");
+  if (parentLabel) return normalizeText(parentLabel.innerText || parentLabel.textContent);
+  const ariaLabel = el.getAttribute("aria-label");
+  if (ariaLabel) return normalizeText(ariaLabel);
+  const labelledBy = el.getAttribute("aria-labelledby");
+  if (labelledBy) {
+    return normalizeText(labelledBy.split(/\s+/).map(idRef => {
+      const node = rootDocument.getElementById(idRef);
+      return node ? (node.innerText || node.textContent || "") : "";
+    }).join(" "));
+  }
+  return "";
+}
+
+function getAriaDescription(el, rootDocument = document) {
+  const describedBy = el.getAttribute("aria-describedby");
+  if (!describedBy) return "";
+  return normalizeText(describedBy.split(/\s+/).map(idRef => {
+    const node = rootDocument.getElementById(idRef);
+    return node ? (node.innerText || node.textContent || "") : "";
+  }).join(" "));
+}
+
+function getFieldsetContext(el) {
+  const fieldset = el.closest("fieldset");
+  if (!fieldset) return "";
+  const legend = fieldset.querySelector("legend");
+  return normalizeText(legend ? (legend.innerText || legend.textContent) : "");
+}
+
+function resolveElementTarget({ selector, field_name, semanticId, label }) {
+  const candidates = [];
+
+  if (selector) {
+    const bySelector = document.querySelector(selector);
+    if (bySelector) candidates.push(bySelector);
+  }
+
+  if (semanticId) {
+    const bySemantic = Array.from(document.querySelectorAll("input, select, textarea, button, a, [role='button']"))
+      .find(el => buildSemanticId(el) === semanticId);
+    if (bySemantic) candidates.push(bySemantic);
+  }
+
+  if (field_name) {
+    const mappedSelector = FIELD_MAPPINGS[field_name];
+    if (mappedSelector) {
+      const mapped = document.querySelector(mappedSelector);
+      if (mapped) candidates.push(mapped);
+    }
+    const escapedName = CSS.escape(field_name);
+    const byIdOrName = document.getElementById(field_name) || document.querySelector(`[name="${escapedName}"]`);
+    if (byIdOrName) candidates.push(byIdOrName);
+  }
+
+  if (label) {
+    const normalizedLabel = normalizeText(label).toLowerCase();
+    document.querySelectorAll("input, select, textarea, button, a, [role='button']").forEach(el => {
+      const elLabel = normalizeText(getAssociatedLabel(el) || el.innerText || el.textContent).toLowerCase();
+      if (elLabel && (elLabel.includes(normalizedLabel) || normalizedLabel.includes(elLabel))) {
+        candidates.push(el);
+      }
+    });
+  }
+
+  const unique = [...new Set(candidates)].filter(isVisibleElement);
+  return unique[0] || null;
+}
+
+async function waitForElement(target, timeoutMs = 3000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const element = resolveElementTarget(target);
+    if (element && isVisibleElement(element) && !element.disabled) {
+      return element;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
+function setNativeValue(element, value) {
+  const prototype = Object.getPrototypeOf(element);
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(element, value);
+  } else {
+    element.value = value;
+  }
+}
+
+function selectOptionByTextOrValue(selectEl, desired) {
+  const normalized = normalizeText(desired).toLowerCase();
+  const compact = normalized.replace(/\s+/g, "");
+  const option = Array.from(selectEl.options).find(opt => {
+    const text = normalizeText(opt.text).toLowerCase();
+    const value = normalizeText(opt.value).toLowerCase();
+    const compactText = text.replace(/\s+/g, "");
+    return value === normalized || text === normalized || text.includes(normalized) ||
+      normalized.includes(text) || compactText.includes(compact) || compact.includes(compactText);
+  });
+  if (!option) {
+    throw new Error(`Không tìm thấy option '${desired}'`);
+  }
+  setNativeValue(selectEl, option.value);
+  selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+  selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+  return option;
+}
+
+async function executeDomAction(command) {
+  const element = await waitForElement(command, command.timeoutMs || 3000);
+  if (!element) {
+    return { status: "error", message: `Không tìm thấy phần tử DOM cho action ${command.action}` };
+  }
+
+  element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  element.focus?.();
+
+  if (command.action === "type_input") {
+    setNativeValue(element, command.text || "");
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    element.blur?.();
+  } else if (command.action === "click_button") {
+    element.click();
+  } else if (command.action === "select_option") {
+    selectOptionByTextOrValue(element, command.value);
+  }
+
+  highlightElement(element);
+  return verifyActionResult(command, element);
+}
+
+function verifyActionResult(command, element) {
+  if (command.action === "type_input") {
+    return {
+      status: element.value === (command.text || "") ? "success" : "warning",
+      value: element.value,
+      selector: getUniqueSelector(element),
+      semanticId: buildSemanticId(element)
+    };
+  }
+  if (command.action === "select_option") {
+    return {
+      status: "success",
+      value: element.value,
+      selectedText: element.selectedOptions?.[0]?.text || "",
+      selector: getUniqueSelector(element),
+      semanticId: buildSemanticId(element)
+    };
+  }
+  return {
+    status: "success",
+    selector: getUniqueSelector(element),
+    semanticId: buildSemanticId(element)
+  };
+}
+
+function navigateToLogin(selector) {
+  let loginSelector = selector;
+  if (!loginSelector) {
+    const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+    if (loginBtn) {
+      loginSelector = getUniqueSelector(loginBtn);
+    }
+  }
+
+  if (loginSelector) {
+    const el = document.querySelector(loginSelector);
+    if (el) {
+      el.click();
+      return { status: "success", message: `Đã click vào nút đăng nhập (${loginSelector})` };
+    }
+  }
+
+  const origin = window.location.origin;
+  window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+  return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
+}
+
+const FALLBACK_CT01_TEMPLATE = {
+  title: "Đăng ký thường trú",
+  headings: [
+    { tag: "h1", text: "Nộp hồ sơ Đăng ký thường trú trực tuyến" }
+  ],
+  formFields: [
+    { tag: "input", type: "text", id: "fullname", name: "fullname", placeholder: "Nhập họ và tên", label: "Họ và tên người nộp", required: true, selector: "input#fullname" },
+    { tag: "input", type: "text", id: "birthday", name: "birthday", placeholder: "DD/MM/YYYY", label: "Ngày tháng năm sinh", required: true, selector: "input#birthday" },
+    { tag: "input", type: "text", id: "cccd-num", name: "cccd-num", placeholder: "Số CCCD/Định danh", label: "Số định danh/CCCD", required: true, selector: "input#cccd-num" },
+    { tag: "input", type: "text", id: "phone", name: "phone", placeholder: "Nhập số điện thoại", label: "Số điện thoại", required: true, selector: "input#phone" },
+    { tag: "select", id: "prov", name: "province", label: "Tỉnh/Thành phố", required: true, selector: "select#prov", options: [
+      { text: "Thành phố Hà Nội", value: "01" },
+      { text: "Thành phố Hồ Chí Minh", value: "79" }
+    ]},
+    { tag: "select", id: "dist", name: "district", label: "Quận/Huyện", required: true, selector: "select#dist", options: [] },
+    { tag: "select", id: "ward", name: "ward", label: "Xã/Phường", required: true, selector: "select#ward", options: [] },
+    { tag: "input", type: "text", id: "address", name: "address", placeholder: "Số nhà, đường phố...", label: "Địa chỉ chi tiết", required: true, selector: "input#address" }
+  ],
+  buttons: [
+    { id: "btn-submit", name: "submit", text: "Nộp hồ sơ", selector: "button#btn-submit" }
+  ]
+};
+
+const FALLBACK_DVC_FORM_TEMPLATES = {
+  "/dvc-tthc-dang-ky-thuong-tru": FALLBACK_CT01_TEMPLATE,
+  "/test-dvc-cascading.html": FALLBACK_CT01_TEMPLATE,
+  "/dvc-tthc-cap-lai-the-bhyt": {
+    title: "Cấp lại thẻ bảo hiểm y tế do hỏng, mất",
+    headings: [
+      { tag: "h1", text: "Cấp lại thẻ BHYT do mất, hỏng trực tuyến" }
+    ],
+    formFields: [
+      { tag: "input", type: "text", id: "fullname", name: "fullname", placeholder: "Nhập họ và tên", label: "Họ và tên người yêu cầu", required: true, selector: "input#fullname" },
+      { tag: "input", type: "text", id: "birthday", name: "birthday", placeholder: "DD/MM/YYYY", label: "Ngày tháng năm sinh", required: true, selector: "input#birthday" },
+      { tag: "input", type: "text", id: "cccd-num", name: "cccd-num", placeholder: "Số định danh/CCCD", label: "Số định danh/CCCD", required: true, selector: "input#cccd-num" },
+      { tag: "input", type: "text", id: "phone", name: "phone", placeholder: "Nhập số điện thoại", label: "Số điện thoại BHYT", required: true, selector: "input#phone" }
+    ],
+    buttons: [
+      { id: "btn-submit", name: "submit", text: "Gửi yêu cầu cấp lại", selector: "button#btn-submit" }
+    ]
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DYNAMIC DOM SCRAPER FOR AGENT ACCESSIBILITY SNAPSHOTS
 // ─────────────────────────────────────────────────────────────────────────────
-// Response contract:
-// { page: { mode: "template"|"ephemeral"|"scrape", pageState, headings, formFields, buttons } }
-// Template pages use an ephemeral sanitized snapshot: no CSRF, password, captcha, or raw MST values.
 function getPageDOMStructure() {
-  const title = document.title;
-  const url = window.location.href;
+  const snapshot = buildDOMSnapshotForDocument(document, window, getFramePath());
+  return {
+    status: "success",
+    frame: getFrameInfo(),
+    page: snapshot,
+    childFrames: window === window.top ? getChildFrameSnapshots() : []
+  };
+}
 
-  const matchedRoute = findTemplateRoute(window.location, DVC_FORM_TEMPLATES);
+function buildDOMSnapshotForDocument(rootDocument, rootWindow, framePath) {
+  const title = rootDocument.title;
+  const url = rootWindow.location.href;
+  const templates = getFormTemplates();
+  const matchedRoute = findTemplateRoute(rootWindow.location, templates);
 
   if (matchedRoute) {
     console.log("[ThôngDVC] Khớp mẫu template DVC. Đọc giá trị hiện tại của form và trả về cache.");
-    const template = JSON.parse(JSON.stringify(DVC_FORM_TEMPLATES[matchedRoute]));
-    const snapshot = buildEphemeralSnapshot(template);
-    
+    const template = JSON.parse(JSON.stringify(templates[matchedRoute]));
+    const snapshot = buildEphemeralSnapshot(template, rootDocument, rootWindow, framePath);
     return {
-      status: "success",
-      page: {
-        title,
-        url,
-        mode: snapshot.mode,
-        pageState: snapshot.pageState,
-        instructionsForAgent: snapshot.instructionsForAgent,
-        headings: snapshot.headings,
-        formFields: snapshot.formFields,
-        buttons: snapshot.buttons
-      }
+      title,
+      url,
+      mode: snapshot.mode,
+      pageState: snapshot.pageState,
+      instructionsForAgent: snapshot.instructionsForAgent,
+      headings: snapshot.headings,
+      formFields: snapshot.formFields,
+      buttons: snapshot.buttons
     };
   }
 
-  // Thu thập các thẻ Heading để biết ngữ cảnh trang
-  const headings = Array.from(document.querySelectorAll("h1, h2, h3, h4"))
+  const headings = Array.from(rootDocument.querySelectorAll("h1, h2, h3, h4"))
     .map(el => ({
       tag: el.tagName.toLowerCase(),
-      text: (el.innerText || el.textContent || "").trim()
+      text: normalizeText(el.innerText || el.textContent, 100)
     }))
-    .map(h => ({ ...h, text: h.text.replace(/\s+/g, " ").slice(0, 100) }))
     .filter(h => h.text.length > 0)
     .slice(0, 10);
 
-  // Lấy các phần tử tương tác
-  const elements = Array.from(document.querySelectorAll("input, select, textarea, button, a.btn, [role='button']"));
-  
+  const elements = Array.from(rootDocument.querySelectorAll("input, select, textarea, button, a.btn, [role='button']"));
   const formFields = [];
   const buttons = [];
 
-  elements.forEach(el => {
-    // Bỏ qua các phần tử ẩn hoặc không hiển thị
-    if (el.type === "hidden" || el.style.display === "none" || el.style.visibility === "hidden") {
-      return;
-    }
-    // Bỏ qua phần tử thuộc widget của trợ lý
-    if (el.closest("#thongdvc-widget-container") || el.closest("#accessibility-assistant-panel")) {
-      return;
-    }
-
-    const rect = el.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) {
+  elements.forEach((el, documentOrder) => {
+    if (shouldSkipInteractiveElement(el)) {
       return;
     }
 
     const tag = el.tagName.toLowerCase();
-    const id = el.id || "";
-    const name = el.getAttribute("name") || "";
     const type = el.getAttribute("type") || "";
-    const placeholder = el.getAttribute("placeholder") || "";
-    const sensitiveMeta = getFieldSensitivity(el, {});
-    const required = el.hasAttribute("required");
-    const selector = getUniqueSelector(el);
+    const isButton = tag === "button" || type === "button" || type === "submit" ||
+      el.getAttribute("role") === "button" || (tag === "a" && el.classList.contains("btn"));
 
-    // Xác định nhãn (label) đi kèm
-    let labelText = "";
-    if (id) {
-      const labelEl = document.querySelector(`label[for="${id}"]`);
-      if (labelEl) {
-        labelText = labelEl.innerText || labelEl.textContent || "";
+    if (isButton) {
+      const button = buildButtonRecord(el, rootDocument, framePath, documentOrder);
+      if (button.text) {
+        buttons.push(button);
       }
-    }
-    if (!labelText) {
-      const parentLabel = el.closest("label");
-      if (parentLabel) {
-        labelText = parentLabel.innerText || parentLabel.textContent || "";
-      }
-    }
-    if (!labelText && el.getAttribute("aria-label")) {
-      labelText = el.getAttribute("aria-label");
-    }
-    if (!labelText) {
-      // Tìm text node phía trước phần tử
-      let sibling = el.previousSibling;
-      while (sibling) {
-        if (sibling.nodeType === Node.TEXT_NODE && sibling.textContent.trim()) {
-          labelText = sibling.textContent.trim();
-          break;
-        } else if (sibling.nodeType === Node.ELEMENT_NODE && (sibling.tagName === "SPAN" || sibling.tagName === "LABEL")) {
-          labelText = sibling.innerText || sibling.textContent || "";
-          break;
-        }
-        sibling = sibling.previousSibling;
-      }
+      return;
     }
 
-    labelText = labelText.trim().replace(/\s+/g, " ").replace(/:\s*$/, "").slice(0, 100);
-
-    // Bỏ qua các trường thông tin trống không có nhãn, placeholder hoặc name
-    if (tag !== "button" && type !== "button" && type !== "submit" && el.getAttribute("role") !== "button" && !(tag === "a" && el.classList.contains("btn"))) {
-      if (!labelText && !placeholder && !name) {
-        return;
-      }
-    }
-
-    if (tag === "button" || type === "button" || type === "submit" || el.getAttribute("role") === "button" || (tag === "a" && el.classList.contains("btn"))) {
-      const btnText = (el.innerText || el.textContent || el.value || placeholder || labelText || "").trim().replace(/\s+/g, " ").slice(0, 80);
-      if (btnText) {
-        buttons.push({
-          id,
-          name,
-          text: btnText,
-          selector
-        });
-      }
-    } else {
-      const fieldInfo = {
-        tag,
-        type,
-        id,
-        name,
-        placeholder,
-        label: labelText,
-        value: sanitizeFieldValue(el, sensitiveMeta),
-        safeValue: sanitizeFieldValue(el, sensitiveMeta),
-        sensitive: sensitiveMeta.sensitive,
-        piiType: sensitiveMeta.piiType,
-        visible: isElementVisible(el),
-        enabled: !el.disabled && !el.hasAttribute("disabled"),
-        required,
-        selector
-      };
-
-      if (tag === "select") {
-        const options = Array.from(el.options)
-          .map(opt => ({
-            text: opt.text.trim(),
-            value: opt.value
-          }))
-          .filter(opt => opt.text.length > 0);
-        fieldInfo.options = options.slice(0, 20); // Giới hạn 20 option
-      }
-
-      formFields.push(fieldInfo);
+    const field = buildFieldRecord(el, rootDocument, framePath, documentOrder);
+    if (field.label || field.placeholder || field.name || field.id) {
+      formFields.push(field);
     }
   });
 
   return {
-    status: "success",
-    page: {
-      title,
-      url,
-      mode: "scrape",
-      pageState: detectTaxLoginPageState(),
-      headings,
-      formFields,
-      buttons
-    }
+    title,
+    url,
+    mode: "scrape",
+    pageState: detectTaxLoginPageState(rootWindow, rootDocument),
+    headings,
+    formFields,
+    buttons
   };
 }
 
-function buildEphemeralSnapshot(template) {
-  const pageState = detectTaxLoginPageState();
+function enrichTemplateField(field, el, framePath, documentOrder) {
+  const sensitivity = getFieldSensitivity(el, field);
+  if (sensitivity.piiType === "csrf") {
+    return null;
+  }
+
+  const base = {
+    ...field,
+    role: field.tag === "select" ? "combobox" : "textbox",
+    disabled: false,
+    readonly: false,
+    validationMessage: "",
+    ariaDescription: "",
+    fieldset: "",
+    framePath,
+    bounds: null,
+    documentOrder,
+    semanticId: `${framePath}::${field.tag}::${field.id || field.name || normalizeText(field.label, 40)}::${documentOrder}`,
+    value: "",
+    safeValue: "",
+    sensitive: sensitivity.sensitive,
+    piiType: sensitivity.piiType,
+    visible: false,
+    enabled: false
+  };
+  if (!el) {
+    if (field.tag === "select") {
+      base.options = buildSafeOptions(el, field, sensitivity);
+    }
+    return base;
+  }
+  const record = buildFieldRecord(el, el.ownerDocument, framePath, documentOrder);
+  return { ...base, ...record, label: field.label || record.label };
+}
+
+function enrichTemplateButton(button, el, framePath, documentOrder) {
+  const base = {
+    ...button,
+    role: "button",
+    type: "submit",
+    disabled: false,
+    framePath,
+    bounds: null,
+    documentOrder,
+    semanticId: `${framePath}::button::${button.id || button.name || normalizeText(button.text, 40)}::${documentOrder}`
+  };
+  if (!el) return base;
+  const record = buildButtonRecord(el, el.ownerDocument, framePath, documentOrder);
+  return { ...base, ...record, text: button.text || record.text };
+}
+
+function getFormTemplates() {
+  return window.DVC_FORM_TEMPLATES || FALLBACK_DVC_FORM_TEMPLATES || {};
+}
+
+function buildEphemeralSnapshot(template, rootDocument, rootWindow, framePath) {
   const formFields = (template.formFields || [])
-    .map(field => {
-      const el = querySelectorSafe(field.selector);
-      const sensitivity = getFieldSensitivity(el, field);
-      if (sensitivity.piiType === "csrf") {
-        return null;
-      }
-
-      const visible = el ? isElementVisible(el) : false;
-      const enabled = el ? !el.disabled && !el.hasAttribute("disabled") : false;
-      const mergedField = {
-        ...field,
-        value: el ? sanitizeFieldValue(el, sensitivity) : "",
-        safeValue: el ? sanitizeFieldValue(el, sensitivity) : "",
-        sensitive: sensitivity.sensitive,
-        piiType: sensitivity.piiType,
-        visible,
-        enabled,
-        selector: field.selector
-      };
-
-      if (field.tag === "select") {
-        mergedField.options = buildSafeOptions(el, field, sensitivity);
-      }
-
-      return mergedField;
+    .map((field, index) => {
+      const el = querySelectorSafe(rootDocument, field.selector);
+      return enrichTemplateField(field, el, framePath, index);
     })
     .filter(Boolean);
 
   return {
     mode: "ephemeral",
-    pageState,
+    pageState: detectTaxLoginPageState(rootWindow, rootDocument),
     instructionsForAgent: template.instructionsForAgent || "",
     headings: template.headings || [],
     formFields,
-    buttons: buildTemplateButtons(template.buttons || [])
+    buttons: buildTemplateButtons(template.buttons || [], rootDocument, framePath, formFields.length)
   };
 }
 
-function buildTemplateButtons(buttons) {
-  return buttons.map(button => {
-    const el = querySelectorSafe(button.selector);
-    const text = el ? cleanText(el.innerText || el.textContent || el.value) : button.text;
+function buildTemplateButtons(buttons, rootDocument, framePath, offset = 0) {
+  return buttons.map((button, index) => {
+    const el = querySelectorSafe(rootDocument, button.selector);
+    const record = enrichTemplateButton(button, el, framePath, offset + index);
     return {
-      ...button,
-      text,
-      visible: el ? isElementVisible(el) : false,
+      ...record,
+      visible: el ? isVisibleElement(el) : false,
       enabled: el ? !el.disabled && !el.hasAttribute("disabled") : false
     };
   });
@@ -582,14 +690,16 @@ function buildSafeOptions(el, field, sensitivity) {
     .map((opt, index) => {
       const text = cleanText(opt.text || opt.textContent || "");
       const value = opt.value || "";
+      const selected = Boolean(opt.selected);
       if (sensitivity.piiType === "mst") {
         return {
           text: text ? `MST option ${index + 1}` : "",
           value: value ? `[MST_OPTION_${index + 1}]` : "",
-          safeValue: value ? `[MST_OPTION_${index + 1}]` : ""
+          safeValue: value ? `[MST_OPTION_${index + 1}]` : "",
+          selected
         };
       }
-      return { text, value, safeValue: value };
+      return { text, value, safeValue: value, selected };
     })
     .filter(opt => opt.text.length > 0)
     .slice(0, 50);
@@ -624,60 +734,48 @@ function sanitizeFieldValue(el, sensitivity) {
   return el.value || "";
 }
 
-function detectTaxLoginPageState() {
-  const path = window.location.pathname;
+function detectTaxLoginPageState(rootWindow = window, rootDocument = document) {
+  const path = rootWindow.location.pathname;
   if (!path.includes("/tthc/login") && !path.includes("/tthc/home")) {
     return "unknown";
   }
 
-  if (hasVisibleSelector("select[name='chooseMst']")) return "tax_code_select";
-  if (hasVisibleSelector("input[name='captchaCbt'], input[name='captcha']")) return "captcha_required";
-  if (hasVisibleSelector("input[name='tenDNCbt'], input[name='matKhauCbt']")) return "credential_modal_cbt";
-  if (hasVisibleSelector("input[name='tenDN'], input[name='matKhau']")) return "credential_modal_ldap";
+  if (hasVisibleSelector(rootDocument, "select[name='chooseMst']")) return "tax_code_select";
+  if (hasVisibleSelector(rootDocument, "input[name='captchaCbt'], input[name='captcha']")) return "captcha_required";
+  if (hasVisibleSelector(rootDocument, "input[name='tenDNCbt'], input[name='matKhauCbt']")) return "credential_modal_cbt";
+  if (hasVisibleSelector(rootDocument, "input[name='tenDN'], input[name='matKhau']")) return "credential_modal_ldap";
 
-  const visibleText = cleanText(document.body?.innerText || "").toLowerCase();
+  const visibleText = cleanText(rootDocument.body?.innerText || "").toLowerCase();
   if (visibleText.includes("cá nhân") && visibleText.includes("đăng nhập")) {
     return "subject_modal";
   }
-  if (path.includes("/tthc/login") || path.includes("/tthc/home")) {
-    return "landing";
+  return "landing";
+}
+
+function hasVisibleSelector(rootDocument, selector) {
+  try {
+    return Array.from(rootDocument.querySelectorAll(selector)).some(isVisibleElement);
+  } catch (err) {
+    return false;
   }
-  return "unknown";
 }
 
-function hasVisibleSelector(selector) {
-  return Array.from(document.querySelectorAll(selector)).some(isElementVisible);
-}
-
-function querySelectorSafe(selector) {
+function querySelectorSafe(rootDocument, selector) {
   if (!selector) return null;
   try {
-    return document.querySelector(selector);
+    return rootDocument.querySelector(selector);
   } catch (err) {
     console.warn("[ThôngDVC] Selector không hợp lệ:", selector, err.message);
     return null;
   }
 }
 
-function isElementVisible(el) {
-  if (!el) return false;
-  const style = window.getComputedStyle(el);
-  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
-    return false;
-  }
-  return Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-}
-
 function cleanText(value) {
-  return (value || "").trim().replace(/\s+/g, " ").slice(0, 160);
+  return normalizeText(value, 160);
 }
 
 function findTemplateRoute(locationObj, templates) {
-  if (!templates) {
-    return null;
-  }
-
-  const routes = Object.keys(templates);
+  const routes = Object.keys(templates || {});
   const pathname = locationObj.pathname.replace(/\/+$/, "") || "/";
   const href = locationObj.href;
 
@@ -685,6 +783,107 @@ function findTemplateRoute(locationObj, templates) {
     const normalizedRoute = route.replace(/\/+$/, "") || "/";
     return pathname === normalizedRoute || pathname.startsWith(`${normalizedRoute}/`) || href.includes(route);
   });
+}
+
+function shouldSkipInteractiveElement(el) {
+  if (el.type === "hidden") return true;
+  if (!isVisibleElement(el)) return true;
+  return Boolean(el.closest("#thongdvc-widget-container") || el.closest("#accessibility-assistant-panel"));
+}
+
+function buildFieldRecord(el, rootDocument, framePath, documentOrder) {
+  const tag = el.tagName.toLowerCase();
+  const type = el.getAttribute("type") || "";
+  const id = el.id || "";
+  const name = el.getAttribute("name") || "";
+  const placeholder = el.getAttribute("placeholder") || "";
+  const label = getAssociatedLabel(el, rootDocument);
+  const role = el.getAttribute("role") || (tag === "select" ? "combobox" : tag === "textarea" ? "textbox" : "textbox");
+  const sensitivity = getFieldSensitivity(el, {});
+  const fieldInfo = {
+    semanticId: buildSemanticId(el, documentOrder, framePath),
+    role,
+    tag,
+    type,
+    id,
+    name,
+    placeholder,
+    label,
+    value: sanitizeFieldValue(el, sensitivity),
+    safeValue: sanitizeFieldValue(el, sensitivity),
+    sensitive: sensitivity.sensitive,
+    piiType: sensitivity.piiType,
+    visible: isVisibleElement(el),
+    enabled: !el.disabled && !el.hasAttribute("disabled"),
+    required: el.hasAttribute("required") || el.getAttribute("aria-required") === "true",
+    disabled: Boolean(el.disabled || el.getAttribute("aria-disabled") === "true"),
+    readonly: Boolean(el.readOnly || el.hasAttribute("readonly")),
+    validationMessage: normalizeText(el.validationMessage || ""),
+    ariaDescription: getAriaDescription(el, rootDocument),
+    fieldset: getFieldsetContext(el),
+    selector: getUniqueSelector(el),
+    framePath,
+    bounds: getElementBounds(el),
+    documentOrder
+  };
+
+  if (tag === "select") {
+    fieldInfo.options = buildSafeOptions(el, {}, sensitivity);
+  }
+
+  return fieldInfo;
+}
+
+function buildButtonRecord(el, rootDocument, framePath, documentOrder) {
+  const tag = el.tagName.toLowerCase();
+  const type = el.getAttribute("type") || "";
+  const id = el.id || "";
+  const name = el.getAttribute("name") || "";
+  const text = normalizeText(el.innerText || el.textContent || el.value || getAssociatedLabel(el, rootDocument), 80);
+  return {
+    semanticId: buildSemanticId(el, documentOrder, framePath),
+    role: el.getAttribute("role") || "button",
+    tag,
+    type,
+    id,
+    name,
+    text,
+    disabled: Boolean(el.disabled || el.getAttribute("aria-disabled") === "true"),
+    selector: getUniqueSelector(el),
+    framePath,
+    bounds: getElementBounds(el),
+    documentOrder
+  };
+}
+
+function getChildFrameSnapshots() {
+  const childFrames = Array.from(document.querySelectorAll("iframe")).map((iframe, index) => {
+    const framePath = `top>iframe[${index}]`;
+    try {
+      if (!iframe.contentWindow || !iframe.contentDocument) {
+        return {
+          framePath,
+          accessible: false,
+          reason: "cross-origin-or-unavailable",
+          selector: getUniqueSelector(iframe)
+        };
+      }
+      return {
+        framePath,
+        accessible: true,
+        selector: getUniqueSelector(iframe),
+        page: buildDOMSnapshotForDocument(iframe.contentDocument, iframe.contentWindow, framePath)
+      };
+    } catch (error) {
+      return {
+        framePath,
+        accessible: false,
+        reason: error.message,
+        selector: getUniqueSelector(iframe)
+      };
+    }
+  });
+  return childFrames;
 }
 
 function getUniqueSelector(el) {
@@ -713,28 +912,7 @@ function getUniqueSelector(el) {
   return path.join(" > ");
 }
 
-function dismissSurveyPopup() {
-  const bodyText = document.body ? document.body.innerText || "" : "";
-  if (bodyText.includes("khảo sát ứng dụng eTax-Mobile") || bodyText.includes("tham gia khảo sát")) {
-    console.log("[ThôngDVC] Phát hiện popup khảo sát eTax-Mobile. Tiến hành tự động tắt...");
-    const buttons = Array.from(document.querySelectorAll("button, a, input[type='button'], .btn"));
-    const dismissBtn = buttons.find(btn => {
-      const text = (btn.innerText || btn.value || "").toLowerCase().trim();
-      return text.includes("để sau") || text.includes("đóng") || text.includes("close") || text.includes("bỏ qua");
-    });
-    if (dismissBtn) {
-      console.log("[ThôngDVC] Tự động click nút để sau:", dismissBtn);
-      dismissBtn.click();
-      return true;
-    }
-  }
-  return false;
-}
-
 function checkLoginStatus() {
-  // Tự động đóng popup khảo sát nếu có trên trang web thật
-  dismissSurveyPopup();
-
   // Tìm kiếm liên kết hoặc nút bấm đăng nhập
   const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
   const userInfo = document.querySelector('.user-info, .profile-menu, #username-display, .login-username');

@@ -63560,11 +63560,11 @@ ${str(snapshot)}`);
   });
   var clickElementTool = tool({
     name: "click_element",
-    description: "Click chu\u1ED9t v\xE0o m\u1ED9t ph\u1EA7n t\u1EED t\u01B0\u01A1ng t\xE1c tr\xEAn trang. V\u1EDBi \u0111\u0103ng nh\u1EADp thu\u1EBF, b\u1EA5m \u0110\u0103ng nh\u1EADp ho\u1EB7c Ti\u1EBFp t\u1EE5c sau MST ch\u1EC9 khi ng\u01B0\u1EDDi d\xF9ng v\u1EEBa x\xE1c nh\u1EADn.",
+    description: "Click chu\u1ED9t v\xE0o m\u1ED9t ph\u1EA7n t\u1EED t\u01B0\u01A1ng t\xE1c tr\xEAn trang. V\u1EDBi \u0111\u0103ng nh\u1EADp thu\u1EBF ho\u1EB7c n\u1ED9p h\u1ED3 s\u01A1, ch\u1EC9 b\u1EA5m sau khi ng\u01B0\u1EDDi d\xF9ng v\u1EEBa x\xE1c nh\u1EADn.",
     parameters: external_exports.object({
       field_name: external_exports.string().describe("T\xEAn ng\u1EEF ngh\u0129a c\u1EE7a n\xFAt c\u1EA7n click (btn-submit, btn-draft)."),
       selector: external_exports.string().optional().describe("CSS selector c\u1EE7a n\xFAt c\u1EA7n click (\u0111\u01B0\u1EE3c l\u1EA5y t\u1EEB read_page_content). N\u1EBFu c\xF3 h\xE3y truy\u1EC1n tham s\u1ED1 n\xE0y \u0111\u1EC3 click ch\xEDnh x\xE1c."),
-      user_confirmed: external_exports.boolean().optional().describe("\u0110\u1EB7t true ch\u1EC9 sau khi ng\u01B0\u1EDDi d\xF9ng x\xE1c nh\u1EADn r\xF5 r\xE0ng thao t\xE1c nh\u1EA1y c\u1EA3m nh\u01B0 \u0110\u0103ng nh\u1EADp ho\u1EB7c Ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST.")
+      user_confirmed: external_exports.boolean().optional().describe("\u0110\u1EB7t true ch\u1EC9 sau khi ng\u01B0\u1EDDi d\xF9ng x\xE1c nh\u1EADn r\xF5 r\xE0ng thao t\xE1c nh\u1EA1y c\u1EA3m nh\u01B0 \u0110\u0103ng nh\u1EADp, ch\u1ECDn/d\xF9ng MST, Ti\u1EBFp t\u1EE5c sau MST, ho\u1EB7c N\u1ED9p h\u1ED3 s\u01A1.")
     }),
     async execute({ field_name, selector, user_confirmed }) {
       console.log("[TOOL] Client click_element:", field_name, selector, user_confirmed);
@@ -63573,7 +63573,7 @@ ${str(snapshot)}`);
       if (needsConfirmation && user_confirmed !== true) {
         return {
           status: "error",
-          message: "C\u1EA7n h\u1ECFi v\xE0 nh\u1EADn x\xE1c nh\u1EADn r\xF5 r\xE0ng t\u1EEB ng\u01B0\u1EDDi d\xF9ng tr\u01B0\u1EDBc khi b\u1EA5m \u0111\u0103ng nh\u1EADp ho\u1EB7c ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST."
+          message: "C\u1EA7n h\u1ECFi v\xE0 nh\u1EADn x\xE1c nh\u1EADn r\xF5 r\xE0ng t\u1EEB ng\u01B0\u1EDDi d\xF9ng tr\u01B0\u1EDBc khi b\u1EA5m \u0111\u0103ng nh\u1EADp, ch\u1ECDn MST, ti\u1EBFp t\u1EE5c sau MST, ho\u1EB7c n\u1ED9p h\u1ED3 s\u01A1."
         };
       }
       return await sendCommandToActiveTab("click_button", { field_name, selector });
@@ -63677,7 +63677,7 @@ ${str(snapshot)}`);
   });
   var readPageContentTool = tool({
     name: "read_page_content",
-    description: "\u0110\u1ECDc c\u1EA5u tr\xFAc, ti\xEAu \u0111\u1EC1 v\xE0 c\xE1c tr\u01B0\u1EDDng th\xF4ng tin \u0111\xE3 \u0111\u01B0\u1EE3c l\u1ECDc an to\xE0n c\u1EE7a trang web hi\u1EC7n t\u1EA1i \u0111\u1EC3 h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi d\xF9ng. Kh\xF4ng tr\u1EA3 raw HTML.",
+    description: "\u0110\u1ECDc c\u1EA5u tr\xFAc, ti\xEAu \u0111\u1EC1 v\xE0 c\xE1c tr\u01B0\u1EDDng th\xF4ng tin (form fields, buttons, dropdowns) c\u1EE7a trang web hi\u1EC7n t\u1EA1i \u0111\u1EC3 h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi d\xF9ng.",
     parameters: external_exports.object({}),
     async execute() {
       console.log("[TOOL] Client read_page_content");
@@ -63705,15 +63705,28 @@ ${str(snapshot)}`);
     }
   });
   async function initializeVoiceAssistant(onEvent) {
-    const tokenResponse = await fetch("http://localhost:8000/token");
-    if (!tokenResponse.ok) {
-      throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token: ${tokenResponse.status}`);
+    let tokenData;
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+          resolve(res || { status: "error", message: "No response from background script" });
+        });
+      });
+      if (response.status === "error") {
+        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token qua background: ${response.message}`);
+      }
+      tokenData = response.data;
+    } else {
+      const tokenResponse = await fetch("http://localhost:8000/token");
+      if (!tokenResponse.ok) {
+        throw new Error(`Kh\xF4ng th\u1EC3 l\u1EA5y token tr\u1EF1c ti\u1EBFp: ${tokenResponse.status}`);
+      }
+      tokenData = await tokenResponse.json();
     }
-    const tokenData = await tokenResponse.json();
     const ephemeralKey = tokenData.value || tokenData.client_secret && tokenData.client_secret.value;
     const agent = new RealtimeAgent({
-      name: "EasyDVC Assistant",
-      instructions: "B\u1EA1n l\xE0 tr\u1EE3 l\xFD d\u1ECBch v\u1EE5 c\xF4ng h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi cao tu\u1ED5i Vi\u1EC7t Nam th\u1EF1c hi\u1EC7n c\xE1c th\u1EE7 t\u1EE5c h\xE0nh ch\xEDnh tr\u1EF1c tuy\u1EBFn.\n1. Khi b\u1EAFt \u0111\u1EA7u ho\u1EB7c khi trang thay \u0111\u1ED5i, h\xE3y lu\xF4n g\u1ECDi `check_login_status` \u0111\u1EA7u ti\xEAn. N\u1EBFu k\u1EBFt qu\u1EA3 `logged_in` l\xE0 false, h\xE3y th\xF4ng b\xE1o th\xE2n thi\u1EC7n v\xE0 g\u1ECDi `navigate_to_login` \u0111\u1EC3 t\u1EF1 \u0111\u1ED9ng \u0111i\u1EC1u h\u01B0\u1EDBng ng\u01B0\u1EDDi d\xE2n sang trang \u0111\u0103ng nh\u1EADp. Khi \u1EDF trang \u0111\u0103ng nh\u1EADp c\u1EE7a T\u1ED5ng c\u1EE5c Thu\u1EBF, h\xE3y gi\u1EA3i th\xEDch v\xE0 khuy\xEAn ng\u01B0\u1EDDi d\xE2n: 'H\u1EC7 th\u1ED1ng c\xF3 3 ph\u01B0\u01A1ng th\u1EE9c \u0111\u0103ng nh\u1EADp l\xE0 T\xE0i kho\u1EA3n \u0111i\u1EC7n t\u1EED, T\xE0i kho\u1EA3n \u0111\u1ECBnh danh \u0111i\u1EC7n t\u1EED VNeID v\xE0 SIM k\xFD s\u1ED1. Ch\xE1u khuy\xEAn b\xE1c n\xEAn ch\u1ECDn \u0111\u1ED1i t\u01B0\u1EE3ng C\xE1 nh\xE2n v\xE0 d\xF9ng ph\u01B0\u01A1ng th\u1EE9c T\xE0i kho\u1EA3n \u0111i\u1EC7n t\u1EED nh\xE9. B\xE1c ch\u1EC9 c\u1EA7n m\u1EDF \u1EE9ng d\u1EE5ng eTax Mobile qu\xE9t m\xE3 QR tr\xEAn m\xE0n h\xECnh l\xE0 \u0111\u0103ng nh\u1EADp \u0111\u01B0\u1EE3c ngay \u1EA1!'.\n2. Gi\u1EA3i th\xEDch cho ng\u01B0\u1EDDi d\xE2n v\u1EC1 trang web n\xE0y v\xE0 c\xE1c d\u1ECBch v\u1EE5 c\xF3 s\u1EB5n. H\xE3y ki\u1EC3m tra xem d\u1ECBch v\u1EE5 ng\u01B0\u1EDDi d\xE2n y\xEAu c\u1EA7u c\xF3 \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 tr\u1EF1c ti\u1EBFp kh\xF4ng.\n   - Ch\xFAng ta h\u1ED7 tr\u1EE3 tr\u1EF1c ti\u1EBFp: \n     * '\u0110\u0103ng k\xFD th\u01B0\u1EDDng tr\xFA' t\u1EA1i /dvc-tthc-dang-ky-thuong-tru\n     * 'C\u1EA5p l\u1EA1i th\u1EBB BHYT' t\u1EA1i /dvc-tthc-cap-lai-the-bhyt\n     * 'Quy\u1EBFt to\xE1n thu\u1EBF / Ho\xE0n thu\u1EBF TNCN' (th\u1EE7 t\u1EE5c 2.002233) t\u1EA1i /dvc-tthc-quyet-toan-thue v\xE0 /test-dvc-tax.html\n3. N\u1EBFu d\u1ECBch v\u1EE5 KH\xD4NG \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 ho\u1EB7c y\xEAu c\u1EA7u m\u01A1 h\u1ED3, h\xE3y h\u1ECFi l\u1EA1i l\xE0m r\xF5 (Ask Back) l\u1EC5 ph\xE9p v\xE0 g\u1EE3i \xFD c\xE1c d\u1ECBch v\u1EE5 t\u01B0\u01A1ng \u0111\u01B0\u01A1ng c\xF3 s\u1EB5n.\n4. N\u1EBFu d\u1ECBch v\u1EE5 \u0110\u01AF\u1EE2C h\u1ED7 tr\u1EE3: H\xE3y l\u1EADp k\u1EBF ho\u1EA1ch, g\u1ECDi `inject_custom_ui` \u0111\u1EC3 hi\u1EC3n th\u1ECB checklist h\u01B0\u1EDBng d\u1EABn l\xEAn m\xE0n h\xECnh, t\u1EF1 \u0111\u1ED9ng \u0111i\u1EC1u h\u01B0\u1EDBng ho\u1EB7c h\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n v\xE0o \u0111\xFAng trang t\u1EDD khai.\n5. Khi th\u1EF1c hi\u1EC7n th\u1EE7 t\u1EE5c Quy\u1EBFt to\xE1n thu\u1EBF TNCN (M\xE3 2.002233):\n   - Khi \u1EDF trang https://dichvucong.gdt.gov.vn/tthc/login ho\u1EB7c /tthc/home, h\xE3y g\u1ECDi `read_tax_login_state` sau m\u1ED7i l\u1EA7n chuy\u1EC3n modal. Snapshot n\xE0y \u0111\xE3 l\u1ECDc CSRF, m\u1EADt kh\u1EA9u, captcha v\xE0 MST th\xF4.\n   - Tuy\u1EC7t \u0111\u1ED1i kh\xF4ng y\xEAu c\u1EA7u ng\u01B0\u1EDDi d\xE2n \u0111\u1ECDc m\u1EADt kh\u1EA9u ho\u1EB7c captcha cho AI; h\xE3y h\u01B0\u1EDBng d\u1EABn b\xE1c t\u1EF1 nh\u1EADp captcha/m\u1EADt kh\u1EA9u tr\xEAn trang. Kh\xF4ng t\xECm c\xE1ch gi\u1EA3i captcha.\n   - Tr\u01B0\u1EDBc khi b\u1EA5m n\xFAt \u0110\u0103ng nh\u1EADp, ch\u1ECDn/d\xF9ng MST \u0111\xE3 l\u01B0u, ho\u1EB7c b\u1EA5m Ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST, h\xE3y h\u1ECFi x\xE1c nh\u1EADn r\xF5 r\xE0ng. Ch\u1EC9 truy\u1EC1n `user_confirmed: true` v\xE0o `click_element` sau khi b\xE1c \u0111\u1ED3ng \xFD.\n   - Khi t\xECm th\u1EE7 t\u1EE5c 2.002233, link ch\u1EEF t\xEAn th\u1EE7 t\u1EE5c ch\u1EC9 m\u1EDF trang chi ti\u1EBFt. \u0110\u1EC3 n\u1ED9p h\u1ED3 s\u01A1 ph\u1EA3i b\u1EA5m icon folder m\xE0u xanh v\u1EDBi selector `a.nop-hoso-btn[ma-tthc='2.002233']`; h\xE3y h\u1ECFi x\xE1c nh\u1EADn tr\u01B0\u1EDBc v\xE0 truy\u1EC1n `user_confirmed: true`.\n   - H\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n gi\u1EA3i quy\u1EBFt c\xE2y quy\u1EBFt \u0111\u1ECBnh ch\u1ECDn c\u01A1 quan thu\u1EBF b\u1EB1ng c\xE1c c\xE2u h\u1ECFi \u0111\u01A1n gi\u1EA3n, v\xED d\u1EE5: 'N\u0103m ngo\xE1i b\xE1c l\xE0m \u1EDF m\u1EA5y c\xF4ng ty?', 'Hi\u1EC7n t\u1EA1i b\xE1c c\xF3 \u0111ang k\xFD h\u1EE3p \u0111\u1ED3ng lao \u0111\u1ED9ng \u1EDF \u0111\xE2u kh\xF4ng?', 'C\xE1c c\xF4ng ty c\u0169 \u0111\xE3 kh\u1EA5u tr\u1EEB thu\u1EBF c\u1EE7a b\xE1c ch\u01B0a?'. Sau \u0111\xF3 g\u1ECDi click_element \u0111\u1EC3 ch\u1ECDn \u0111\xFAng c\xE1c \xF4 \u0111i\u1EC1u ki\u1EC7n: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n   - \u0110i\u1EC1n c\xE1c s\u1ED1 li\u1EC7u t\u1EEB Ch\u1EE9ng t\u1EEB kh\u1EA5u tr\u1EEB thu\u1EBF TNCN (M\xE3 s\u1ED1 thu\u1EBF, thu nh\u1EADp ch\u1ECBu thu\u1EBF, s\u1ED1 thu\u1EBF \u0111\xE3 kh\u1EA5u tr\u1EEB, s\u1ED1 ti\u1EC1n \u0111\u1EC1 ngh\u1ECB ho\xE0n, s\u1ED1 t\xE0i kho\u1EA3n, ng\xE2n h\xE0ng) b\u1EB1ng tool fill_field.\n6. Khi \u1EDF trang t\u1EDD khai, g\u1ECDi `read_page_content` \u0111\u1EC3 xem c\xE1c tr\u01B0\u1EDDng nh\u1EADp li\u1EC7u. Gi\xFAp ng\u01B0\u1EDDi d\xE2n \u0111i\u1EC1n form b\u1EB1ng c\xE1c c\xF4ng c\u1EE5 (fill_field, click_element, select_option) v\xE0 lu\xF4n truy\u1EC1n selector t\u01B0\u01A1ng \u1EE9ng \u0111\u1EC3 \u0111i\u1EC1n ch\xEDnh x\xE1c. H\xE3y x\xE1c nh\u1EADn l\u1EA1i th\xF4ng tin nh\u1EA1y c\u1EA3m c\u1EE7a ng\u01B0\u1EDDi d\xE2n tr\u01B0\u1EDBc khi \u0111i\u1EC1n. Khi \u0111i\u1EC1n \u0111\u1ECBa ch\u1EC9 h\xE0nh ch\xEDnh 3 c\u1EA5p, h\xE3y lu\xF4n \u01B0u ti\xEAn s\u1EED d\u1EE5ng `fill_address_cascade` thay v\xEC \u0111i\u1EC1n l\u1EBB t\u1EBB. B\xE1c c\u0169ng c\xF3 th\u1EC3 g\u1ECDi `bulk_fill_profile` \u0111\u1EC3 \u0111i\u1EC1n nhanh c\xE1c th\xF4ng tin c\xE1 nh\xE2n c\u01A1 b\u1EA3n.\n7. Tr\u1EA3 l\u1EDDi b\u1EB1ng ti\u1EBFng Vi\u1EC7t ng\u1EAFn g\u1ECDn, d\u1EC5 hi\u1EC3u v\xE0 l\u1EC5 ph\xE9p d\xE0nh cho ng\u01B0\u1EDDi cao tu\u1ED5i.",
+      name: "Th\xF4ngDVC Assistant",
+      instructions: "B\u1EA1n l\xE0 tr\u1EE3 l\xFD d\u1ECBch v\u1EE5 c\xF4ng h\u1ED7 tr\u1EE3 ng\u01B0\u1EDDi cao tu\u1ED5i Vi\u1EC7t Nam th\u1EF1c hi\u1EC7n c\xE1c th\u1EE7 t\u1EE5c h\xE0nh ch\xEDnh tr\u1EF1c tuy\u1EBFn.\n1. Khi v\u1EEBa b\u1EAFt \u0111\u1EA7u phi\xEAn tho\u1EA1i ho\u1EB7c khi ch\u1EC9 nh\u1EADn \u0111\u01B0\u1EE3c c\u1EA5u tr\xFAc trang, h\xE3y ch\xE0o ng\u1EAFn g\u1ECDn, n\xF3i b\xE1c \u0111ang \u1EDF trang n\xE0o, r\u1ED3i h\u1ECFi b\xE1c mu\u1ED1n l\xE0m th\u1EE7 t\u1EE5c g\xEC ho\u1EB7c c\u1EA7n \u0111i\u1EC1n ph\u1EA7n n\xE0o. Kh\xF4ng t\u1EF1 g\u1ECDi `check_login_status` khi v\u1EEBa b\u1EAFt \u0111\u1EA7u.\n2. Ch\u1EC9 g\u1ECDi `check_login_status` khi b\xE1c \u0111\xE3 ch\u1ECDn m\u1ED9t th\u1EE7 t\u1EE5c c\u1EE5 th\u1EC3 ho\u1EB7c y\xEAu c\u1EA7u thao t\xE1c nh\u01B0 \u0111i\u1EC1n h\u1ED3 s\u01A1, n\u1ED9p h\u1ED3 s\u01A1, \u0111\u0103ng nh\u1EADp, ki\u1EC3m tra tr\u1EA1ng th\xE1i \u0111\u0103ng nh\u1EADp. N\u1EBFu ch\u01B0a \u0111\u0103ng nh\u1EADp, h\xE3y h\u1ECFi xin ph\xE9p tr\u01B0\u1EDBc khi g\u1ECDi `navigate_to_login`; kh\xF4ng t\u1EF1 chuy\u1EC3n trang khi b\xE1c ch\u01B0a \u0111\u1ED3ng \xFD r\xF5 r\xE0ng.\n3. Gi\u1EA3i th\xEDch cho ng\u01B0\u1EDDi d\xE2n v\u1EC1 trang web n\xE0y v\xE0 c\xE1c d\u1ECBch v\u1EE5 c\xF3 s\u1EB5n. H\xE3y ki\u1EC3m tra xem d\u1ECBch v\u1EE5 ng\u01B0\u1EDDi d\xE2n y\xEAu c\u1EA7u c\xF3 \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 tr\u1EF1c ti\u1EBFp kh\xF4ng (Ch\xFAng ta h\u1ED7 tr\u1EE3: '\u0110\u0103ng k\xFD th\u01B0\u1EDDng tr\xFA' t\u1EA1i /dvc-tthc-dang-ky-thuong-tru, v\xE0 'C\u1EA5p l\u1EA1i th\u1EBB BHYT' t\u1EA1i /dvc-tthc-cap-lai-the-bhyt).\n4. N\u1EBFu d\u1ECBch v\u1EE5 KH\xD4NG \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3 ho\u1EB7c y\xEAu c\u1EA7u m\u01A1 h\u1ED3, h\xE3y h\u1ECFi l\u1EA1i l\xE0m r\xF5 l\u1EC5 ph\xE9p v\xE0 g\u1EE3i \xFD c\xE1c d\u1ECBch v\u1EE5 t\u01B0\u01A1ng \u0111\u01B0\u01A1ng c\xF3 s\u1EB5n.\n5. N\u1EBFu d\u1ECBch v\u1EE5 \u0110\u01AF\u1EE2C h\u1ED7 tr\u1EE3: H\xE3y l\u1EADp k\u1EBF ho\u1EA1ch, g\u1ECDi `inject_custom_ui` \u0111\u1EC3 hi\u1EC3n th\u1ECB checklist 4 b\u01B0\u1EDBc h\u01B0\u1EDBng d\u1EABn l\xEAn m\xE0n h\xECnh, t\u1EF1 \u0111\u1ED9ng \u0111i\u1EC1u h\u01B0\u1EDBng ho\u1EB7c h\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n v\xE0o \u0111\xFAng trang t\u1EDD khai sau khi \u0111\xE3 r\xF5 \xFD \u0111\u1ECBnh c\u1EE7a b\xE1c.\n6. Khi th\u1EF1c hi\u1EC7n th\u1EE7 t\u1EE5c Quy\u1EBFt to\xE1n thu\u1EBF TNCN (M\xE3 2.002233):\n   - Khi \u1EDF trang https://dichvucong.gdt.gov.vn/tthc/login ho\u1EB7c /tthc/home, h\xE3y g\u1ECDi `read_tax_login_state` sau m\u1ED7i l\u1EA7n chuy\u1EC3n modal. Snapshot n\xE0y \u0111\xE3 l\u1ECDc CSRF, m\u1EADt kh\u1EA9u, captcha v\xE0 MST th\xF4.\n   - Tuy\u1EC7t \u0111\u1ED1i kh\xF4ng y\xEAu c\u1EA7u ng\u01B0\u1EDDi d\xE2n \u0111\u1ECDc m\u1EADt kh\u1EA9u ho\u1EB7c captcha cho AI; h\xE3y h\u01B0\u1EDBng d\u1EABn b\xE1c t\u1EF1 nh\u1EADp captcha/m\u1EADt kh\u1EA9u tr\xEAn trang. Kh\xF4ng t\xECm c\xE1ch gi\u1EA3i captcha.\n   - Tr\u01B0\u1EDBc khi b\u1EA5m n\xFAt \u0110\u0103ng nh\u1EADp, ch\u1ECDn/d\xF9ng MST \u0111\xE3 l\u01B0u, ho\u1EB7c b\u1EA5m Ti\u1EBFp t\u1EE5c sau khi ch\u1ECDn MST, h\xE3y h\u1ECFi x\xE1c nh\u1EADn r\xF5 r\xE0ng. Ch\u1EC9 truy\u1EC1n `user_confirmed: true` v\xE0o `click_element` sau khi b\xE1c \u0111\u1ED3ng \xFD.\n   - Khi t\xECm th\u1EE7 t\u1EE5c 2.002233, link ch\u1EEF t\xEAn th\u1EE7 t\u1EE5c ch\u1EC9 m\u1EDF trang chi ti\u1EBFt. \u0110\u1EC3 n\u1ED9p h\u1ED3 s\u01A1 ph\u1EA3i b\u1EA5m icon folder m\xE0u xanh v\u1EDBi selector `a.nop-hoso-btn[ma-tthc='2.002233']`; h\xE3y h\u1ECFi x\xE1c nh\u1EADn tr\u01B0\u1EDBc v\xE0 truy\u1EC1n `user_confirmed: true`.\n   - H\u01B0\u1EDBng d\u1EABn ng\u01B0\u1EDDi d\xE2n gi\u1EA3i quy\u1EBFt c\xE2y quy\u1EBFt \u0111\u1ECBnh ch\u1ECDn c\u01A1 quan thu\u1EBF b\u1EB1ng c\xE1c c\xE2u h\u1ECFi \u0111\u01A1n gi\u1EA3n, v\xED d\u1EE5: 'N\u0103m ngo\xE1i b\xE1c l\xE0m \u1EDF m\u1EA5y c\xF4ng ty?', 'Hi\u1EC7n t\u1EA1i b\xE1c c\xF3 \u0111ang k\xFD h\u1EE3p \u0111\u1ED3ng lao \u0111\u1ED9ng \u1EDF \u0111\xE2u kh\xF4ng?', 'C\xE1c c\xF4ng ty c\u0169 \u0111\xE3 kh\u1EA5u tr\u1EEB thu\u1EBF c\u1EE7a b\xE1c ch\u01B0a?'. Sau \u0111\xF3 g\u1ECDi click_element \u0111\u1EC3 ch\u1ECDn \u0111\xFAng c\xE1c \xF4 \u0111i\u1EC1u ki\u1EC7n: 'change-workplace-yes'/'change-workplace-no', 'has-contract-yes'/'has-contract-no', 'tax-deducted-source-yes'/'tax-deducted-source-no'.\n   - \u0110i\u1EC1n c\xE1c s\u1ED1 li\u1EC7u t\u1EEB Ch\u1EE9ng t\u1EEB kh\u1EA5u tr\u1EEB thu\u1EBF TNCN (M\xE3 s\u1ED1 thu\u1EBF, thu nh\u1EADp ch\u1ECBu thu\u1EBF, s\u1ED1 thu\u1EBF \u0111\xE3 kh\u1EA5u tr\u1EEB, s\u1ED1 ti\u1EC1n \u0111\u1EC1 ngh\u1ECB ho\xE0n, s\u1ED1 t\xE0i kho\u1EA3n, ng\xE2n h\xE0ng) b\u1EB1ng tool fill_field.\n7. Khi \u1EDF trang t\u1EDD khai, g\u1ECDi `read_page_content` \u0111\u1EC3 xem c\xE1c tr\u01B0\u1EDDng nh\u1EADp li\u1EC7u. Gi\xFAp ng\u01B0\u1EDDi d\xE2n \u0111i\u1EC1n form b\u1EB1ng c\xE1c c\xF4ng c\u1EE5 v\xE0 lu\xF4n truy\u1EC1n selector ho\u1EB7c semanticId t\u01B0\u01A1ng \u1EE9ng \u0111\u1EC3 \u0111i\u1EC1n ch\xEDnh x\xE1c. H\xE3y x\xE1c nh\u1EADn l\u1EA1i th\xF4ng tin nh\u1EA1y c\u1EA3m c\u1EE7a ng\u01B0\u1EDDi d\xE2n tr\u01B0\u1EDBc khi \u0111i\u1EC1n.\n8. Tr\u1EA3 l\u1EDDi b\u1EB1ng ti\u1EBFng Vi\u1EC7t ng\u1EAFn g\u1ECDn, d\u1EC5 hi\u1EC3u v\xE0 l\u1EC5 ph\xE9p d\xE0nh cho ng\u01B0\u1EDDi cao tu\u1ED5i.",
       voice: "alloy",
       tools: [
         fillFieldTool,
@@ -63735,19 +63748,16 @@ ${str(snapshot)}`);
       transport: "webrtc",
       model: "gpt-realtime-2",
       config: {
-        inputAudioTranscription: {
-          model: "whisper-1"
-        },
         audio: {
           input: {
             transcription: {
-              model: "whisper-1"
+              model: "gpt-4o-transcribe",
+              language: "vi",
+              prompt: "Ng\u01B0\u1EDDi n\xF3i d\xF9ng ti\u1EBFng Vi\u1EC7t trong ng\u1EEF c\u1EA3nh d\u1ECBch v\u1EE5 c\xF4ng Vi\u1EC7t Nam, bi\u1EC3u m\u1EABu h\xE0nh ch\xEDnh, c\u0103n c\u01B0\u1EDBc c\xF4ng d\xE2n, b\u1EA3o hi\u1EC3m y t\u1EBF, th\u01B0\u1EDDng tr\xFA, t\u1EA1m tr\xFA."
             },
             turnDetection: {
-              type: "server_vad",
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500
+              type: "semantic_vad",
+              eagerness: "medium"
             }
           }
         }
@@ -63761,19 +63771,23 @@ ${str(snapshot)}`);
         console.log("[EasyDVC] \u0110\xE3 g\u1EEDi c\u1EA5u tr\xFAc trang hi\u1EC7n t\u1EA1i cho Agent.");
         session.sendMessage(
           `H\u1EC7 th\u1ED1ng: Ng\u01B0\u1EDDi d\xF9ng v\u1EEBa k\u1EBFt n\u1ED1i tho\u1EA1i. D\u01B0\u1EDBi \u0111\xE2y l\xE0 c\u1EA5u tr\xFAc trang web hi\u1EC7n t\u1EA1i b\xE1c \u0111ang xem (B\xE1c KH\xD4NG c\u1EA7n \u0111\u1ECDc to hay l\u1EB7p l\u1EA1i th\xF4ng tin n\xE0y tr\u1EEB khi \u0111\u01B0\u1EE3c h\u1ECFi):
+Frame hi\u1EC7n t\u1EA1i:
+${JSON.stringify(domSnapshot.frame)}
 Ti\xEAu \u0111\u1EC1 trang: ${domSnapshot.page.title}
 \u0110\u1ECBa ch\u1EC9 URL: ${domSnapshot.page.url}
-Ch\u1EBF \u0111\u1ED9 snapshot: ${domSnapshot.page.mode || "unknown"}
+Ch\u1EBF \u0111\u1ED9 snapshot: ${domSnapshot.page.mode || "scrape"}
 Tr\u1EA1ng th\xE1i trang: ${domSnapshot.page.pageState || "unknown"}
-L\u01B0u \xFD an to\xE0n: ${domSnapshot.page.instructionsForAgent || "Kh\xF4ng c\xF3"}
+H\u01B0\u1EDBng d\u1EABn an to\xE0n theo trang: ${domSnapshot.page.instructionsForAgent || ""}
 C\xE1c th\u1EBB ti\xEAu \u0111\u1EC1:
 ${JSON.stringify(domSnapshot.page.headings)}
 C\xE1c tr\u01B0\u1EDDng nh\u1EADp li\u1EC7u:
 ${JSON.stringify(domSnapshot.page.formFields)}
 C\xE1c n\xFAt b\u1EA5m:
 ${JSON.stringify(domSnapshot.page.buttons)}
+C\xE1c iframe con:
+${JSON.stringify(domSnapshot.childFrames || [])}
 
-H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n (d\xE0nh cho ng\u01B0\u1EDDi cao tu\u1ED5i Vi\u1EC7t Nam), cho b\xE1c bi\u1EBFt b\xE1c \u0111ang \u1EDF trang n\xE0o, v\xE0 h\u1ECFi b\xE1c xem c\u1EA7n ch\xE1u gi\xFAp \u0111i\u1EC1n th\xF4ng tin g\xEC.`
+H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n, cho b\xE1c bi\u1EBFt b\xE1c \u0111ang \u1EDF trang n\xE0o, v\xE0 h\u1ECFi b\xE1c mu\u1ED1n l\xE0m th\u1EE7 t\u1EE5c g\xEC ho\u1EB7c c\u1EA7n ch\xE1u gi\xFAp ph\u1EA7n n\xE0o. Kh\xF4ng g\u1ECDi c\xF4ng c\u1EE5 n\xE0o \u1EDF l\u01B0\u1EE3t ch\xE0o \u0111\u1EA7u ti\xEAn n\xE0y.`
         );
       }
     } catch (err) {
