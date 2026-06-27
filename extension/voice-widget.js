@@ -205,6 +205,7 @@
   // 3. Variables & Handlers
   let session = null;
   let currentStreamingBubble = null;
+  let currentStreamingText = "";
   let functionCallNames = {};
   const micBtn = document.getElementById("thongdvc-mic-btn");
   const panel = document.getElementById("thongdvc-panel");
@@ -239,16 +240,19 @@
       currentStreamingBubble.className = "thongdvc-bubble thongdvc-bubble-agent";
       currentStreamingBubble.innerHTML = `<strong>Trợ lý:</strong> <span id="thongdvc-stream-text"></span>`;
       logEl.appendChild(currentStreamingBubble);
+      currentStreamingText = "";
     }
     const textEl = document.getElementById("thongdvc-stream-text");
     if (textEl) {
       textEl.innerText += delta;
+      currentStreamingText += delta;
     }
     logEl.scrollTop = logEl.scrollHeight;
   }
 
   function finalizeAiStreaming() {
     currentStreamingBubble = null;
+    currentStreamingText = "";
   }
 
   // WebRTC events callback
@@ -262,7 +266,10 @@
         statusEl.style.color = "#60a5fa";
       }
     } else if (msg.type === "agent_end") {
-      // Stream finalized or complete response delivered
+      const finalText = (msg.text || "").trim();
+      if (finalText && !currentStreamingText.trim()) {
+        appendLog("Trợ lý", finalText, "agent");
+      }
       finalizeAiStreaming();
     } else if (msg.type === "error") {
       statusEl.innerText = "Lỗi kết nối!";
@@ -277,8 +284,11 @@
           appendLog("Bạn", event.transcript, "user");
         }
       }
-      // 2. Real-time audio text delta
+      // 2. Real-time AI text/audio transcript deltas
       if (event.type === "response.audio_transcript.delta") {
+        updateAiStreaming(event.delta);
+      }
+      if (event.type === "response.text.delta" || event.type === "response.output_text.delta") {
         updateAiStreaming(event.delta);
       }
       // 3. Track function call names
