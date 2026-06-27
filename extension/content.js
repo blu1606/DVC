@@ -20,6 +20,25 @@ const FIELD_MAPPINGS = {
   "address":    "input#address",
   "btn-submit": "button#btn-submit",
   "submit":     "button#btn-submit",
+  "tax-code":             "input#tax-code",
+  "mst":                  "input#tax-code",
+  "taxable-income":       "input#taxable-income",
+  "tax-deducted":         "input#tax-deducted",
+  "tax-refund":           "input#tax-refund",
+  "bank-account":         "input#bank-account",
+  "bank-name":            "input#bank-name",
+  "change-workplace-yes": "input#change-workplace-yes",
+  "change-workplace-no":  "input#change-workplace-no",
+  "has-contract-yes":     "input#has-contract-yes",
+  "has-contract-no":      "input#has-contract-no",
+  "tax-deducted-source-yes": "input#tax-deducted-source-yes",
+  "tax-deducted-source-no":  "input#tax-deducted-source-no",
+  "maTTHC":                  "input[name='maTTHC']",
+  "search-input":            "input[name='maTTHC']",
+  "btn-search":              "button.btn-primary[type='submit']",
+  "search-btn":              "button.btn-primary[type='submit']",
+  "nop-hoso-2.002233":       "a.nop-hoso-btn[ma-tthc='2.002233']",
+  "btn-nop-hoso":            "a.nop-hoso-btn[ma-tthc='2.002233']",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,6 +102,24 @@ async function handleCommand(command) {
     }
   }
 
+  if (action === "read_tax_login_state") {
+    console.log("[ThôngDVC] Đọc trạng thái đăng nhập thuế");
+    try {
+      const snapshot = getPageDOMStructure();
+      if (snapshot.status !== "success") {
+        return snapshot;
+      }
+      return {
+        status: "success",
+        pageState: snapshot.page.pageState || "unknown",
+        mode: snapshot.page.mode || "scrape",
+        page: snapshot.page
+      };
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
   // Lệnh cuộn trang
   if (action === "scroll") {
     console.log("[ThôngDVC] Thực hiện cuộn trang:", command.direction);
@@ -94,6 +131,83 @@ async function handleCommand(command) {
         behavior: "smooth"
       });
       return { status: "success" };
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  // Các lệnh này không cần tìm sẵn một field DOM cụ thể.
+  // Đặt trước selector lookup để không bị chặn bởi guard "không tìm thấy element".
+  if (action === "check_login") {
+    try {
+      return checkLoginStatus();
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (action === "navigate_to_login") {
+    try {
+      let selector = command.selector;
+      if (!selector) {
+        const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
+        if (loginBtn) {
+          selector = getUniqueSelector(loginBtn);
+        }
+      }
+
+      if (selector) {
+        const el = document.querySelector(selector);
+        if (el) {
+          el.click();
+          return { status: "success", message: `Đã click vào nút đăng nhập (${selector})` };
+        }
+      }
+
+      const origin = window.location.origin;
+      window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
+      return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (action === "update_checklist") {
+    try {
+      const html = buildChecklistHTML(command.steps);
+      return injectShadowUI({
+        mount: "accessibility-assistant-panel",
+        html: html,
+        mode: "shadow-root"
+      });
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (action === "show_pii_confirm") {
+    try {
+      const { masked_text, raw_text, tokens } = command;
+      const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens);
+      return { status: "success", confirmed: confirmed };
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (action === "fill_address_cascade") {
+    try {
+      const { province, district, ward } = command;
+      return await fillAddressCascading({ province, district, ward });
+    } catch (err) {
+      return { status: "error", message: err.message };
+    }
+  }
+
+  if (action === "bulk_fill_profile") {
+    try {
+      const { profile } = command;
+      return await bulkFillProfile(profile);
     } catch (err) {
       return { status: "error", message: err.message };
     }
@@ -142,87 +256,17 @@ async function handleCommand(command) {
     }
 
     if (action === "select_option") {
-      element.value = value;
-      element.dispatchEvent(new Event("change", { bubbles: true }));
+      let isBootstrapSelect = false;
+      if (element.tagName === "SELECT" && (element.classList.contains("selectpicker") || element.closest(".bootstrap-select"))) {
+        isBootstrapSelect = selectOptionBootstrapSelect(element, value);
+      }
+      if (!isBootstrapSelect) {
+        element.value = value;
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      }
       highlightElement(element);
       console.log(`[ThôngDVC] Chọn thành công option '${value}' cho '${field_name || selector}' (${selector})`);
       return { status: "success" };
-    }
-
-    if (action === "check_login") {
-      try {
-        return checkLoginStatus();
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "navigate_to_login") {
-      try {
-        let selector = command.selector;
-        if (!selector) {
-          const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
-          if (loginBtn) {
-            selector = getUniqueSelector(loginBtn);
-          }
-        }
-
-        if (selector) {
-          const el = document.querySelector(selector);
-          if (el) {
-            el.click();
-            return { status: "success", message: `Đã click vào nút đăng nhập (${selector})` };
-          }
-        }
-
-        // Fallback: Chuyển hướng theo domain hiện tại
-        const origin = window.location.origin;
-        window.location.href = origin + (origin.includes("dichvucong.gov.vn") ? "/dvc-tthc-login" : "/login");
-        return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "update_checklist") {
-      try {
-        const html = buildChecklistHTML(command.steps);
-        return injectShadowUI({
-          mount: "accessibility-assistant-panel",
-          html: html,
-          mode: "shadow-root"
-        });
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "show_pii_confirm") {
-      try {
-        const { masked_text, raw_text, tokens } = command;
-        const confirmed = await showPIIConfirmModal(masked_text, raw_text, tokens);
-        return { status: "success", confirmed: confirmed };
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "fill_address_cascade") {
-      try {
-        const { province, district, ward } = command;
-        return await fillAddressCascading({ province, district, ward });
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
-    }
-
-    if (action === "bulk_fill_profile") {
-      try {
-        const { profile } = command;
-        return await bulkFillProfile(profile);
-      } catch (err) {
-        return { status: "error", message: err.message };
-      }
     }
 
     console.warn(`[EasyDVC] Lỗi: Hành động không hỗ trợ: ${action}`);
@@ -280,85 +324,63 @@ function sanitizeHTML(htmlString) {
   );
 }
 
-const CT01_TEMPLATE = {
-  title: "Đăng ký thường trú",
-  headings: [
-    { tag: "h1", text: "Nộp hồ sơ Đăng ký thường trú trực tuyến" }
-  ],
-  formFields: [
-    { tag: "input", type: "text", id: "fullname", name: "fullname", placeholder: "Nhập họ và tên", label: "Họ và tên người nộp", required: true, selector: "input#fullname" },
-    { tag: "input", type: "text", id: "birthday", name: "birthday", placeholder: "DD/MM/YYYY", label: "Ngày tháng năm sinh", required: true, selector: "input#birthday" },
-    { tag: "input", type: "text", id: "cccd-num", name: "cccd-num", placeholder: "Số CCCD/Định danh", label: "Số định danh/CCCD", required: true, selector: "input#cccd-num" },
-    { tag: "input", type: "text", id: "phone", name: "phone", placeholder: "Nhập số điện thoại", label: "Số điện thoại", required: true, selector: "input#phone" },
-    { tag: "select", id: "prov", name: "province", label: "Tỉnh/Thành phố", required: true, selector: "select#prov", options: [
-      { text: "Thành phố Hà Nội", value: "01" },
-      { text: "Thành phố Hồ Chí Minh", value: "79" }
-    ]},
-    { tag: "select", id: "dist", name: "district", label: "Quận/Huyện", required: true, selector: "select#dist", options: [] },
-    { tag: "select", id: "ward", name: "ward", label: "Xã/Phường", required: true, selector: "select#ward", options: [] },
-    { tag: "input", type: "text", id: "address", name: "address", placeholder: "Số nhà, đường phố...", label: "Địa chỉ chi tiết", required: true, selector: "input#address" }
-  ],
-  buttons: [
-    { id: "btn-submit", name: "submit", text: "Nộp hồ sơ", selector: "button#btn-submit" }
-  ]
-};
+function selectOptionBootstrapSelect(selectEl, value) {
+  selectEl.value = value;
+  selectEl.dispatchEvent(new Event("change", { bubbles: true }));
 
-const DVC_FORM_TEMPLATES = {
-  "/dvc-tthc-dang-ky-thuong-tru": CT01_TEMPLATE,
-  "/test-dvc-cascading.html": CT01_TEMPLATE,
-  "/dvc-tthc-cap-lai-the-bhyt": {
-    title: "Cấp lại thẻ bảo hiểm y tế do hỏng, mất",
-    headings: [
-      { tag: "h1", text: "Cấp lại thẻ BHYT do mất, hỏng trực tuyến" }
-    ],
-    formFields: [
-      { tag: "input", type: "text", id: "fullname", name: "fullname", placeholder: "Nhập họ và tên", label: "Họ và tên người yêu cầu", required: true, selector: "input#fullname" },
-      { tag: "input", type: "text", id: "birthday", name: "birthday", placeholder: "DD/MM/YYYY", label: "Ngày tháng năm sinh", required: true, selector: "input#birthday" },
-      { tag: "input", type: "text", id: "cccd-num", name: "cccd-num", placeholder: "Số định danh/CCCD", label: "Số định danh/CCCD", required: true, selector: "input#cccd-num" },
-      { tag: "input", type: "text", id: "phone", name: "phone", placeholder: "Nhập số điện thoại", label: "Số điện thoại BHYT", required: true, selector: "input#phone" }
-    ],
-    buttons: [
-      { id: "btn-submit", name: "submit", text: "Gửi yêu cầu cấp lại", selector: "button#btn-submit" }
-    ]
+  const container = selectEl.closest('.bootstrap-select') || selectEl.parentElement;
+  if (container) {
+    const button = container.querySelector('button[data-bs-toggle="dropdown"]') || container.querySelector('button.dropdown-toggle');
+    if (button) {
+      const optionIndex = Array.from(selectEl.options).findIndex(opt => opt.value === value);
+      if (optionIndex !== -1) {
+        const dropdownMenu = container.querySelector('.dropdown-menu') || document.querySelector('.dropdown-menu.show');
+        if (dropdownMenu) {
+          const item = dropdownMenu.querySelector(`[data-original-index="${optionIndex}"]`) || 
+                       dropdownMenu.querySelector(`a[id*="-${optionIndex}"]`) ||
+                       dropdownMenu.querySelectorAll('li')[optionIndex]?.querySelector('a');
+          if (item) {
+            item.click();
+            console.log(`[ThôngDVC] Đã tương tác click chọn Bootstrap Select cho option index: ${optionIndex}`);
+            return true;
+          }
+        }
+      }
+    }
   }
-};
+  return false;
+}
+
+// Ghi chú: DVC_FORM_TEMPLATES được định nghĩa toàn cục và tải từ form-templates.js
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DYNAMIC DOM SCRAPER FOR AGENT ACCESSIBILITY SNAPSHOTS
 // ─────────────────────────────────────────────────────────────────────────────
+// Response contract:
+// { page: { mode: "template"|"ephemeral"|"scrape", pageState, headings, formFields, buttons } }
+// Template pages use an ephemeral sanitized snapshot: no CSRF, password, captcha, or raw MST values.
 function getPageDOMStructure() {
   const title = document.title;
   const url = window.location.href;
 
-  const matchedRoute = Object.keys(DVC_FORM_TEMPLATES).find(route => url.includes(route));
+  const matchedRoute = findTemplateRoute(window.location, DVC_FORM_TEMPLATES);
 
   if (matchedRoute) {
     console.log("[ThôngDVC] Khớp mẫu template DVC. Đọc giá trị hiện tại của form và trả về cache.");
     const template = JSON.parse(JSON.stringify(DVC_FORM_TEMPLATES[matchedRoute]));
-    
-    // Đọc động các giá trị thực tế đang có trên form để LLM đồng bộ
-    template.formFields.forEach(field => {
-      const el = document.querySelector(field.selector);
-      if (el) {
-        field.value = el.value || "";
-        // Nếu là select, load thêm option đã chọn
-        if (field.tag === "select" && el.options) {
-          field.options = Array.from(el.options).map(opt => ({
-            text: opt.text.trim(),
-            value: opt.value
-          })).slice(0, 50);
-        }
-      }
-    });
+    const snapshot = buildEphemeralSnapshot(template);
     
     return {
       status: "success",
       page: {
         title,
         url,
-        headings: template.headings,
-        formFields: template.formFields,
-        buttons: template.buttons
+        mode: snapshot.mode,
+        pageState: snapshot.pageState,
+        instructionsForAgent: snapshot.instructionsForAgent,
+        headings: snapshot.headings,
+        formFields: snapshot.formFields,
+        buttons: snapshot.buttons
       }
     };
   }
@@ -399,7 +421,7 @@ function getPageDOMStructure() {
     const name = el.getAttribute("name") || "";
     const type = el.getAttribute("type") || "";
     const placeholder = el.getAttribute("placeholder") || "";
-    const value = el.value || "";
+    const sensitiveMeta = getFieldSensitivity(el, {});
     const required = el.hasAttribute("required");
     const selector = getUniqueSelector(el);
 
@@ -462,7 +484,12 @@ function getPageDOMStructure() {
         name,
         placeholder,
         label: labelText,
-        value: type === "password" ? "******" : value,
+        value: sanitizeFieldValue(el, sensitiveMeta),
+        safeValue: sanitizeFieldValue(el, sensitiveMeta),
+        sensitive: sensitiveMeta.sensitive,
+        piiType: sensitiveMeta.piiType,
+        visible: isElementVisible(el),
+        enabled: !el.disabled && !el.hasAttribute("disabled"),
         required,
         selector
       };
@@ -486,11 +513,178 @@ function getPageDOMStructure() {
     page: {
       title,
       url,
+      mode: "scrape",
+      pageState: detectTaxLoginPageState(),
       headings,
       formFields,
       buttons
     }
   };
+}
+
+function buildEphemeralSnapshot(template) {
+  const pageState = detectTaxLoginPageState();
+  const formFields = (template.formFields || [])
+    .map(field => {
+      const el = querySelectorSafe(field.selector);
+      const sensitivity = getFieldSensitivity(el, field);
+      if (sensitivity.piiType === "csrf") {
+        return null;
+      }
+
+      const visible = el ? isElementVisible(el) : false;
+      const enabled = el ? !el.disabled && !el.hasAttribute("disabled") : false;
+      const mergedField = {
+        ...field,
+        value: el ? sanitizeFieldValue(el, sensitivity) : "",
+        safeValue: el ? sanitizeFieldValue(el, sensitivity) : "",
+        sensitive: sensitivity.sensitive,
+        piiType: sensitivity.piiType,
+        visible,
+        enabled,
+        selector: field.selector
+      };
+
+      if (field.tag === "select") {
+        mergedField.options = buildSafeOptions(el, field, sensitivity);
+      }
+
+      return mergedField;
+    })
+    .filter(Boolean);
+
+  return {
+    mode: "ephemeral",
+    pageState,
+    instructionsForAgent: template.instructionsForAgent || "",
+    headings: template.headings || [],
+    formFields,
+    buttons: buildTemplateButtons(template.buttons || [])
+  };
+}
+
+function buildTemplateButtons(buttons) {
+  return buttons.map(button => {
+    const el = querySelectorSafe(button.selector);
+    const text = el ? cleanText(el.innerText || el.textContent || el.value) : button.text;
+    return {
+      ...button,
+      text,
+      visible: el ? isElementVisible(el) : false,
+      enabled: el ? !el.disabled && !el.hasAttribute("disabled") : false
+    };
+  });
+}
+
+function buildSafeOptions(el, field, sensitivity) {
+  const sourceOptions = el?.options ? Array.from(el.options) : (field.options || []);
+  return sourceOptions
+    .map((opt, index) => {
+      const text = cleanText(opt.text || opt.textContent || "");
+      const value = opt.value || "";
+      if (sensitivity.piiType === "mst") {
+        return {
+          text: text ? `MST option ${index + 1}` : "",
+          value: value ? `[MST_OPTION_${index + 1}]` : "",
+          safeValue: value ? `[MST_OPTION_${index + 1}]` : ""
+        };
+      }
+      return { text, value, safeValue: value };
+    })
+    .filter(opt => opt.text.length > 0)
+    .slice(0, 50);
+}
+
+function getFieldSensitivity(el, field) {
+  const name = (field.name || el?.getAttribute("name") || "").toLowerCase();
+  const id = (field.id || el?.id || "").toLowerCase();
+  const selector = (field.selector || "").toLowerCase();
+  const type = (field.type || el?.getAttribute("type") || "").toLowerCase();
+  const piiType = field.piiType || inferPiiType({ name, id, selector, type });
+
+  return {
+    sensitive: Boolean(field.sensitive) || piiType !== "none",
+    piiType
+  };
+}
+
+function inferPiiType({ name, id, selector, type }) {
+  const haystack = `${name} ${id} ${selector}`;
+  if (name === "_csrf" || haystack.includes("csrf")) return "csrf";
+  if (type === "password" || haystack.includes("matkhau") || haystack.includes("password")) return "password";
+  if (haystack.includes("captcha")) return "captcha";
+  if (haystack.includes("mst") || haystack.includes("tax-code") || haystack.includes("choosemst")) return "mst";
+  return "none";
+}
+
+function sanitizeFieldValue(el, sensitivity) {
+  if (!el || sensitivity.piiType === "csrf") return "";
+  if (sensitivity.piiType === "password" || sensitivity.piiType === "captcha") return "";
+  if (sensitivity.piiType === "mst") return el.value ? "[MST_AVAILABLE]" : "";
+  return el.value || "";
+}
+
+function detectTaxLoginPageState() {
+  const path = window.location.pathname;
+  if (!path.includes("/tthc/login") && !path.includes("/tthc/home")) {
+    return "unknown";
+  }
+
+  if (hasVisibleSelector("select[name='chooseMst']")) return "tax_code_select";
+  if (hasVisibleSelector("input[name='captchaCbt'], input[name='captcha']")) return "captcha_required";
+  if (hasVisibleSelector("input[name='tenDNCbt'], input[name='matKhauCbt']")) return "credential_modal_cbt";
+  if (hasVisibleSelector("input[name='tenDN'], input[name='matKhau']")) return "credential_modal_ldap";
+
+  const visibleText = cleanText(document.body?.innerText || "").toLowerCase();
+  if (visibleText.includes("cá nhân") && visibleText.includes("đăng nhập")) {
+    return "subject_modal";
+  }
+  if (path.includes("/tthc/login") || path.includes("/tthc/home")) {
+    return "landing";
+  }
+  return "unknown";
+}
+
+function hasVisibleSelector(selector) {
+  return Array.from(document.querySelectorAll(selector)).some(isElementVisible);
+}
+
+function querySelectorSafe(selector) {
+  if (!selector) return null;
+  try {
+    return document.querySelector(selector);
+  } catch (err) {
+    console.warn("[ThôngDVC] Selector không hợp lệ:", selector, err.message);
+    return null;
+  }
+}
+
+function isElementVisible(el) {
+  if (!el) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+    return false;
+  }
+  return Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+
+function cleanText(value) {
+  return (value || "").trim().replace(/\s+/g, " ").slice(0, 160);
+}
+
+function findTemplateRoute(locationObj, templates) {
+  if (!templates) {
+    return null;
+  }
+
+  const routes = Object.keys(templates);
+  const pathname = locationObj.pathname.replace(/\/+$/, "") || "/";
+  const href = locationObj.href;
+
+  return routes.find(route => {
+    const normalizedRoute = route.replace(/\/+$/, "") || "/";
+    return pathname === normalizedRoute || pathname.startsWith(`${normalizedRoute}/`) || href.includes(route);
+  });
 }
 
 function getUniqueSelector(el) {
@@ -519,7 +713,28 @@ function getUniqueSelector(el) {
   return path.join(" > ");
 }
 
+function dismissSurveyPopup() {
+  const bodyText = document.body ? document.body.innerText || "" : "";
+  if (bodyText.includes("khảo sát ứng dụng eTax-Mobile") || bodyText.includes("tham gia khảo sát")) {
+    console.log("[ThôngDVC] Phát hiện popup khảo sát eTax-Mobile. Tiến hành tự động tắt...");
+    const buttons = Array.from(document.querySelectorAll("button, a, input[type='button'], .btn"));
+    const dismissBtn = buttons.find(btn => {
+      const text = (btn.innerText || btn.value || "").toLowerCase().trim();
+      return text.includes("để sau") || text.includes("đóng") || text.includes("close") || text.includes("bỏ qua");
+    });
+    if (dismissBtn) {
+      console.log("[ThôngDVC] Tự động click nút để sau:", dismissBtn);
+      dismissBtn.click();
+      return true;
+    }
+  }
+  return false;
+}
+
 function checkLoginStatus() {
+  // Tự động đóng popup khảo sát nếu có trên trang web thật
+  dismissSurveyPopup();
+
   // Tìm kiếm liên kết hoặc nút bấm đăng nhập
   const loginBtn = document.querySelector('a[href*="login"], a[href*="dang-nhap"], .btn-login, #btn-login');
   const userInfo = document.querySelector('.user-info, .profile-menu, #username-display, .login-username');
