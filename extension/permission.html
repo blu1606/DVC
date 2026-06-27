@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Cấp quyền Microphone cho ThôngDVC</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            text-align: center;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        h2 {
+            color: #da251d;
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        p {
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 12px 24px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎙️ Cấp quyền Truy cập Micro</h2>
+        <p>ThôngDVC cần quyền truy cập Micro của bạn để trợ lý giọng nói có thể lắng nghe và điền biểu mẫu dịch vụ công.</p>
+        <p>Vui lòng click nút dưới đây và nhấn <strong>Cho phép (Allow)</strong> ở thông báo hiện ra ở góc trên bên trái trình duyệt.</p>
+        <button id="btn-request">Cho phép sử dụng Micro</button>
+    </div>
+    <script src="permission.js"></script>
+</body>
+</html>

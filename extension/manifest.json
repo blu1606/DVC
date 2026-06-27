@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "ThôngDVC Trợ lý Giọng nói",
+  "version": "1.0",
+  "description": "Trợ lý hỗ trợ người cao tuổi điền hồ sơ dịch vụ công bằng giọng nói và Generative UI.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["webrtc-client.bundle.js", "voice-widget.js", "content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

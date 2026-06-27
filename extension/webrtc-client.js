@@ -1,0 +1,376 @@
+/**
+ * Phase 04 — WebRTC Voice Client
+ * Quản lý vòng đời phiên thoại Realtime qua OpenAI Agents SDK (TypeScript/JS).
+ */
+
+import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime";
+import { tool } from "@openai/agents";
+import { z } from "zod";
+import { buildChecklistHTML } from "./ui-builder.js";
+import { PIIShield } from "./pii-shield.js";
+
+const piiShield = new PIIShield();
+
+/**
+ * Gửi lệnh DOM đến content script của Active Tab.
+ */
+async function sendCommandToActiveTab(action, params) {
+  // Nếu đang chạy trong content script của trang web, gọi trực tiếp handleCommand
+  if (typeof window !== "undefined" && window.handleCommand) {
+    console.log("[ThôngDVC] Đang chạy trong Content Script, thực thi DOM trực tiếp.");
+    return await window.handleCommand({ action, ...params });
+  }
+
+  if (typeof chrome === "undefined" || !chrome.tabs) {
+    console.warn("[ThôngDVC] Không chạy trong môi trường Extension. Bỏ qua gửi lệnh DOM.");
+    return { status: "success", message: "Simulated success (no extension context)" };
+  }
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return { status: "error", message: "Không tìm thấy active tab" };
+    
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tab.id, { action, ...params }, (response) => {
+        resolve(response || { status: "success" });
+      });
+    });
+  } catch (error) {
+    console.error("[ThôngDVC] Lỗi khi gửi lệnh đến active tab:", error);
+    return { status: "error", message: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMANTIC TOOLS — Tích hợp ngay tại Client-side Voice Agent
+// ─────────────────────────────────────────────────────────────────────────────
+
+const fillFieldTool = tool({
+  name: "fill_field",
+  description: "Điền dữ liệu văn bản vào một trường thông tin trên form dịch vụ công.",
+  parameters: z.object({
+    field_name: z.string().describe("Tên ngữ nghĩa của trường thông tin (fullname, birthday, cccd-num, phone, address)."),
+    value: z.string().describe("Giá trị văn bản cần nhập."),
+    selector: z.string().optional().describe("CSS selector của trường thông tin cần điền (được lấy từ read_page_content). Nếu có hãy truyền tham số này để định vị chính xác.")
+  }),
+  async execute({ field_name, value, selector }) {
+    console.log("[TOOL] Client fill_field:", field_name, value, selector);
+    const unmaskedValue = piiShield.unmask(value);
+    return await sendCommandToActiveTab("type_input", { field_name, text: unmaskedValue, selector });
+  }
+});
+
+const clickElementTool = tool({
+  name: "click_element",
+  description: "Click chuột vào một phần tử tương tác trên trang.",
+  parameters: z.object({
+    field_name: z.string().describe("Tên ngữ nghĩa của nút cần click (btn-submit, btn-draft)."),
+    selector: z.string().optional().describe("CSS selector của nút cần click (được lấy từ read_page_content). Nếu có hãy truyền tham số này để click chính xác.")
+  }),
+  async execute({ field_name, selector }) {
+    console.log("[TOOL] Client click_element:", field_name, selector);
+    return await sendCommandToActiveTab("click_button", { field_name, selector });
+  }
+});
+
+const selectOptionTool = tool({
+  name: "select_option",
+  description: "Chọn một tùy chọn trong menu thả xuống (dropdown).",
+  parameters: z.object({
+    field_name: z.string().describe("Tên ngữ nghĩa của dropdown (province)."),
+    value: z.string().describe("Giá trị cần chọn (HCM, HN)."),
+    selector: z.string().optional().describe("CSS selector của dropdown cần chọn (được lấy từ read_page_content). Nếu có hãy truyền tham số này để chọn chính xác.")
+  }),
+  async execute({ field_name, value, selector }) {
+    console.log("[TOOL] Client select_option:", field_name, value, selector);
+    return await sendCommandToActiveTab("select_option", { field_name, value, selector });
+  }
+});
+
+const injectCustomUiTool = tool({
+  name: "inject_custom_ui",
+  description: "Hiển thị hộp thoại hướng dẫn checklist hoặc bảng trợ lý cho người dùng.",
+  parameters: z.object({
+    html_content: z.string().describe("Chuỗi HTML đại diện cho giao diện checklist hướng dẫn.")
+  }),
+  async execute({ html_content }) {
+    console.log("[TOOL] Client inject_custom_ui");
+    return await sendCommandToActiveTab("inject_html", {
+      mount: "accessibility-assistant-panel",
+      html: html_content,
+      mode: "shadow-root",
+      position: "bottom-right"
+    });
+  }
+});
+
+const updateChecklistTool = tool({
+  name: "update_checklist",
+  description: "Cập nhật hoặc hiển thị bảng checklist 4 bước hướng dẫn lên màn hình cho người dân.",
+  parameters: z.object({
+    steps: z.array(z.object({
+      label: z.string().describe("Tên của bước thực hiện (ví dụ: '1. Đăng nhập hệ thống', '2. Điền tờ khai thường trú')."),
+      done: z.boolean().describe("Trạng thái hoàn thành bước này (true là đã hoàn thành, false là chưa).")
+    })).describe("Mảng chứa các bước của checklist.")
+  }),
+  async execute({ steps }) {
+    console.log("[TOOL] Client update_checklist:", steps);
+    const html = buildChecklistHTML(steps);
+    return await sendCommandToActiveTab("inject_html", {
+      mount: "accessibility-assistant-panel",
+      html: html,
+      mode: "shadow-root",
+      position: "bottom-right"
+    });
+  }
+});
+
+const checkLoginStatusTool = tool({
+  name: "check_login_status",
+  description: "Kiểm tra xem người dân đã đăng nhập vào hệ thống cổng dịch vụ công chưa.",
+  parameters: z.object({}),
+  async execute() {
+    console.log("[TOOL] Client check_login_status");
+    return await sendCommandToActiveTab("check_login", {});
+  }
+});
+
+const navigateToLoginTool = tool({
+  name: "navigate_to_login",
+  description: "Điều hướng trình duyệt của người dân sang trang đăng nhập của cổng dịch vụ công.",
+  parameters: z.object({
+    selector: z.string().optional().describe("CSS Selector của nút Đăng nhập được phát hiện bởi check_login_status.")
+  }),
+  async execute({ selector }) {
+    console.log("[TOOL] Client navigate_to_login:", selector);
+    return await sendCommandToActiveTab("navigate_to_login", { selector });
+  }
+});
+
+const fillAddressCascadeTool = tool({
+  name: "fill_address_cascade",
+  description: "Tự động điền nhanh địa chỉ 3 cấp (Tỉnh/Thành phố, Quận/Huyện, Xã/Phường) vào biểu mẫu dịch vụ công. Giải quyết tự động độ trễ AJAX.",
+  parameters: z.object({
+    province: z.string().describe("Tên Tỉnh/Thành phố (ví dụ: 'Hà Nội', 'Hồ Chí Minh')."),
+    district: z.string().describe("Tên Quận/Huyện (ví dụ: 'Cầu Giấy', 'Quận 1')."),
+    ward: z.string().describe("Tên Xã/Phường/Thị trấn (ví dụ: 'Dịch Vọng Hậu', 'Bến Nghé').")
+  }),
+  async execute({ province, district, ward }) {
+    console.log("[TOOL] Client fill_address_cascade:", province, district, ward);
+    return await sendCommandToActiveTab("fill_address_cascade", { province, district, ward });
+  }
+});
+
+const bulkFillProfileTool = tool({
+  name: "bulk_fill_profile",
+  description: "Tự động điền nhanh toàn bộ các thông tin cơ bản của công dân (họ tên, ngày sinh, CCCD, số điện thoại) đã lưu trong bộ nhớ máy của người dân.",
+  parameters: z.object({}),
+  async execute() {
+    console.log("[TOOL] Client bulk_fill_profile");
+    let profile = null;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get("user_profile");
+      profile = data.user_profile;
+    }
+    return await sendCommandToActiveTab("bulk_fill_profile", { profile });
+  }
+});
+
+const readPageContentTool = tool({
+  name: "read_page_content",
+  description: "Đọc cấu trúc, tiêu đề và các trường thông tin (form fields, buttons, dropdowns) của trang web hiện tại để hỗ trợ người dùng.",
+  parameters: z.object({}),
+  async execute() {
+    console.log("[TOOL] Client read_page_content");
+    return await sendCommandToActiveTab("read_dom", {});
+  }
+});
+
+const scrollPageTool = tool({
+  name: "scroll_page",
+  description: "Cuộn trang web lên hoặc xuống.",
+  parameters: z.object({
+    direction: z.enum(["up", "down"]).describe("Hướng cuộn trang ('up' là cuộn lên, 'down' là cuộn xuống).")
+  }),
+  async execute({ direction }) {
+    console.log("[TOOL] Client scroll_page:", direction);
+    return await sendCommandToActiveTab("scroll", { direction });
+  }
+});
+
+/**
+ * Khởi tạo trợ lý giọng nói và kết nối WebRTC đến OpenAI Realtime API.
+ * @param {Function} onEvent Callback nhận các sự kiện thời gian thực (transcript, status, error).
+ * @returns {Promise<RealtimeSession>} Session đã kết nối, sẵn sàng giao tiếp.
+ */
+export async function initializeVoiceAssistant(onEvent) {
+  const tokenResponse = await fetch("http://localhost:8000/token");
+  if (!tokenResponse.ok) {
+    throw new Error(`Không thể lấy token: ${tokenResponse.status}`);
+  }
+  const tokenData    = await tokenResponse.json();
+  const ephemeralKey = tokenData.value || (tokenData.client_secret && tokenData.client_secret.value);  // dạng "ek_..."
+
+  // Tạo RealtimeAgent với các tools đã định nghĩa
+  const agent = new RealtimeAgent({
+    name: "ThôngDVC Assistant",
+    instructions:
+      "Bạn là trợ lý dịch vụ công hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến.\n" +
+      "1. Khi bắt đầu hoặc khi trang thay đổi, hãy luôn gọi `check_login_status` đầu tiên. Nếu kết quả `logged_in` là false, hãy thông báo thân thiện và gọi `navigate_to_login` để tự động điều hướng người dân sang trang đăng nhập.\n" +
+      "2. Giải thích cho người dân về trang web này và các dịch vụ có sẵn. Hãy kiểm tra xem dịch vụ người dân yêu cầu có được hỗ trợ trực tiếp không (Chúng ta hỗ trợ: 'Đăng ký thường trú' tại /dvc-tthc-dang-ky-thuong-tru, và 'Cấp lại thẻ BHYT' tại /dvc-tthc-cap-lai-the-bhyt).\n" +
+      "3. Nếu dịch vụ KHÔNG được hỗ trợ hoặc yêu cầu mơ hồ, hãy hỏi lại làm rõ (Ask Back) lễ phép và gợi ý các dịch vụ tương đương có sẵn.\n" +
+      "4. Nếu dịch vụ ĐƯỢC hỗ trợ: Hãy lập kế hoạch, gọi `inject_custom_ui` để hiển thị checklist 4 bước hướng dẫn lên màn hình, tự động điều hướng hoặc hướng dẫn người dân vào đúng trang tờ khai.\n" +
+      "5. Khi ở trang tờ khai, gọi `read_page_content` để xem các trường nhập liệu. Giúp người dân điền form bằng các công cụ (fill_field, click_element, select_option) và luôn truyền selector tương ứng để điền chính xác. Hãy xác nhận lại thông tin nhạy cảm của người dân trước khi điền. Khi điền địa chỉ hành chính 3 cấp, hãy luôn ưu tiên sử dụng `fill_address_cascade` thay vì điền lẻ tẻ. Bác cũng có thể gọi `bulk_fill_profile` để điền nhanh các thông tin cá nhân cơ bản.\n" +
+      "6. Trả lời bằng tiếng Việt ngắn gọn, dễ hiểu và lễ phép dành cho người cao tuổi.",
+    voice: "alloy",
+    tools: [
+      fillFieldTool, 
+      clickElementTool, 
+      selectOptionTool, 
+      injectCustomUiTool, 
+      updateChecklistTool,
+      readPageContentTool, 
+      scrollPageTool,
+      checkLoginStatusTool,
+      navigateToLoginTool,
+      fillAddressCascadeTool,
+      bulkFillProfileTool
+    ]
+  });
+
+  const session = new RealtimeSession(agent, {
+    apiKey:    ephemeralKey,
+    transport: "webrtc",
+    model:     "gpt-realtime-2",
+    config: {
+      inputAudioTranscription: {
+        model: "whisper-1"
+      },
+      audio: {
+        input: {
+          transcription: {
+            model: "whisper-1"
+          },
+          turnDetection: {
+            type:                "server_vad",
+            threshold:            0.5,
+            prefix_padding_ms:    300,
+            silence_duration_ms:  500,
+          },
+        },
+      },
+    },
+  });
+
+  await session.connect({});
+  console.log("[ThôngDVC] Phiên thoại Realtime đã sẵn sàng!");
+
+  // Gửi DOM snapshot hiện tại để Agent có ngữ cảnh ngay lập tức
+  try {
+    const domSnapshot = await sendCommandToActiveTab("read_dom", {});
+    if (domSnapshot && domSnapshot.status === "success") {
+      console.log("[ThôngDVC] Đã gửi cấu trúc trang hiện tại cho Agent.");
+      session.sendMessage(
+        `Hệ thống: Người dùng vừa kết nối thoại. Dưới đây là cấu trúc trang web hiện tại bác đang xem (Bác KHÔNG cần đọc to hay lặp lại thông tin này trừ khi được hỏi):\n` +
+        `Tiêu đề trang: ${domSnapshot.page.title}\n` +
+        `Địa chỉ URL: ${domSnapshot.page.url}\n` +
+        `Các thẻ tiêu đề:\n${JSON.stringify(domSnapshot.page.headings)}\n` +
+        `Các trường nhập liệu:\n${JSON.stringify(domSnapshot.page.formFields)}\n` +
+        `Các nút bấm:\n${JSON.stringify(domSnapshot.page.buttons)}\n\n` +
+        `Hãy chào bác một cách thân thiện (dành cho người cao tuổi Việt Nam), cho bác biết bác đang ở trang nào, và hỏi bác xem cần cháu giúp điền thông tin gì.`
+      );
+    }
+  } catch (err) {
+    console.error("[ThôngDVC] Lỗi gửi DOM ban đầu:", err);
+  }
+
+  // Nhận toàn bộ raw events từ OpenAI
+  session.on("transport_event", (event) => {
+    // Can thiệp để mã hóa PII khi Whisper dịch xong giọng nói của user
+    if (event && event.type === "conversation.item.input_audio_transcription.completed") {
+      const rawText = event.transcript;
+      if (rawText) {
+        const maskedText = piiShield.mask(rawText);
+        if (maskedText !== rawText) {
+          console.log("[PII] Phát hiện PII trong giọng nói, hiển thị modal xác nhận cục bộ!");
+          
+          // Ghi đè transcript để UI widget chỉ hiển thị bản đã mã hóa có ổ khóa
+          event.transcript = maskedText;
+          
+          const tokensArray = Array.from(piiShield.tokenMap.entries());
+          
+          sendCommandToActiveTab("show_pii_confirm", {
+            masked_text: maskedText,
+            raw_text: rawText,
+            tokens: tokensArray
+          }).then(response => {
+            if (response && response.confirmed === false) {
+              console.log("[PII] Người dùng hủy bỏ, xóa các tokens khỏi RAM.");
+              tokensArray.forEach(([token]) => {
+                piiShield.tokenMap.delete(token);
+              });
+            } else {
+              console.log("[PII] Người dùng đồng ý, giữ lại các tokens để phục vụ điền form.");
+            }
+          });
+        }
+      }
+    }
+
+    console.log("[TRANSPORT]", event.type, event);
+    if (onEvent) {
+      onEvent({ type: "transport_event", event });
+    }
+  });
+
+  // Nhận output text khi agent trả lời
+  session.on("agent_end", (context, agentInstance, outputText) => {
+    console.log("[AGENT] Trả lời:", outputText);
+    if (onEvent) {
+      onEvent({ type: "agent_end", text: outputText });
+    }
+  });
+
+  // Phát hiện AI nói
+  session.on("audio_start", () => {
+    console.log("[ThôngDVC] AI đang nói...");
+    if (onEvent) {
+      onEvent({ type: "status", status: "ai_speaking" });
+    }
+  });
+  
+  session.on("audio_stopped", () => {
+    console.log("[ThôngDVC] AI nói xong.");
+    if (onEvent) {
+      onEvent({ type: "status", status: "ai_stopped" });
+    }
+  });
+
+  session.on("error", ({ error }) => {
+    console.error("[ThôngDVC] Lỗi session:", error);
+    if (onEvent) {
+      onEvent({ type: "error", error });
+    }
+  });
+
+  return session;
+}
+
+export function closeVoiceSession(session) {
+  if (session) {
+    session.interrupt();
+    session.close();
+    console.log("[ThôngDVC] Đã đóng phiên thoại.");
+  }
+}
+
+// Expose globally for extension content scripts / popup script
+if (typeof window !== "undefined") {
+  window.WebRTCClient = {
+    initializeVoiceAssistant,
+    closeVoiceSession,
+    mask: (txt) => piiShield.mask(txt),
+    unmask: (txt) => piiShield.unmask(txt),
+    getTokenMap: () => piiShield.tokenMap
+  };
+}
