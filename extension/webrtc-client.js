@@ -231,24 +231,59 @@ const scrollPageTool = tool({
  * @param {Function} onEvent Callback nhận các sự kiện thời gian thực (transcript, status, error).
  * @returns {Promise<RealtimeSession>} Session đã kết nối, sẵn sàng giao tiếp.
  */
-export async function initializeVoiceAssistant(onEvent) {
-  let tokenData;
-  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-    const response = await new Promise((resolve) => {
+async function fetchRealtimeTokenDirect() {
+  const tokenResponse = await fetch("http://localhost:8000/token");
+  if (!tokenResponse.ok) {
+    throw new Error(`Không thể lấy token trực tiếp: ${tokenResponse.status}`);
+  }
+  return await tokenResponse.json();
+}
+
+async function fetchRealtimeTokenFromBackground() {
+  return await new Promise((resolve) => {
+    try {
       chrome.runtime.sendMessage({ action: "FETCH_TOKEN" }, (res) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          resolve({ status: "error", message: runtimeError.message });
+          return;
+        }
         resolve(res || { status: "error", message: "No response from background script" });
       });
-    });
+    } catch (error) {
+      resolve({ status: "error", message: error.message });
+    }
+  });
+}
+
+function isInvalidatedExtensionContext(message) {
+  return String(message || "").toLowerCase().includes("extension context invalidated");
+}
+
+export async function initializeVoiceAssistant(onEvent) {
+  let tokenData;
+  let backgroundError = "";
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    const response = await fetchRealtimeTokenFromBackground();
     if (response.status === "error") {
-      throw new Error(`Không thể lấy token qua background: ${response.message}`);
+      backgroundError = response.message || "Unknown background error";
+    } else {
+      tokenData = response.data;
     }
-    tokenData = response.data;
-  } else {
-    const tokenResponse = await fetch("http://localhost:8000/token");
-    if (!tokenResponse.ok) {
-      throw new Error(`Không thể lấy token trực tiếp: ${tokenResponse.status}`);
+  }
+
+  if (!tokenData) {
+    try {
+      tokenData = await fetchRealtimeTokenDirect();
+    } catch (error) {
+      if (isInvalidatedExtensionContext(backgroundError)) {
+        throw new Error("Extension vừa được reload. Bác hãy refresh lại trang rồi bấm Bắt đầu nói lại.");
+      }
+      if (backgroundError) {
+        throw new Error(`Không thể lấy token qua background: ${backgroundError}; trực tiếp: ${error.message}`);
+      }
+      throw error;
     }
-    tokenData = await tokenResponse.json();
   }
   const ephemeralKey = tokenData.value || (tokenData.client_secret && tokenData.client_secret.value);  // dạng "ek_..."
 
