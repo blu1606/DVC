@@ -20,6 +20,25 @@ const FIELD_MAPPINGS = {
   "address":    "input#address",
   "btn-submit": "button#btn-submit",
   "submit":     "button#btn-submit",
+  "tax-code":             "input#tax-code",
+  "mst":                  "input#tax-code",
+  "taxable-income":       "input#taxable-income",
+  "tax-deducted":         "input#tax-deducted",
+  "tax-refund":           "input#tax-refund",
+  "bank-account":         "input#bank-account",
+  "bank-name":            "input#bank-name",
+  "change-workplace-yes": "input#change-workplace-yes",
+  "change-workplace-no":  "input#change-workplace-no",
+  "has-contract-yes":     "input#has-contract-yes",
+  "has-contract-no":      "input#has-contract-no",
+  "tax-deducted-source-yes": "input#tax-deducted-source-yes",
+  "tax-deducted-source-no":  "input#tax-deducted-source-no",
+  "maTTHC":                  "input[name='maTTHC']",
+  "search-input":            "input[name='maTTHC']",
+  "btn-search":              "button.btn-primary[type='submit']",
+  "search-btn":              "button.btn-primary[type='submit']",
+  "nop-hoso-2.002233":       "a.nop-hoso-btn[ma-tthc='2.002233']",
+  "btn-nop-hoso":            "a.nop-hoso-btn[ma-tthc='2.002233']",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,6 +89,7 @@ async function handleCommand(command) {
   const pageActions = new Set([
     "inject_html",
     "read_dom",
+    "read_tax_login_state",
     "scroll",
     "check_login",
     "navigate_to_login",
@@ -88,6 +108,20 @@ async function handleCommand(command) {
     if (action === "read_dom") {
       console.log("[ThôngDVC] Thực hiện đọc cấu trúc DOM");
       return getPageDOMStructure();
+    }
+
+    if (action === "read_tax_login_state") {
+      console.log("[ThôngDVC] Đọc trạng thái đăng nhập thuế");
+      const snapshot = getPageDOMStructure();
+      if (snapshot.status !== "success") {
+        return snapshot;
+      }
+      return {
+        status: "success",
+        pageState: snapshot.page.pageState || "unknown",
+        mode: snapshot.page.mode || "scrape",
+        page: snapshot.page
+      };
     }
 
     if (action === "scroll") {
@@ -440,7 +474,7 @@ function navigateToLogin(selector) {
   return { status: "success", message: "Đang chuyển hướng sang trang đăng nhập bằng URL..." };
 }
 
-const CT01_TEMPLATE = {
+const FALLBACK_CT01_TEMPLATE = {
   title: "Đăng ký thường trú",
   headings: [
     { tag: "h1", text: "Nộp hồ sơ Đăng ký thường trú trực tuyến" }
@@ -463,9 +497,9 @@ const CT01_TEMPLATE = {
   ]
 };
 
-const DVC_FORM_TEMPLATES = {
-  "/dvc-tthc-dang-ky-thuong-tru": CT01_TEMPLATE,
-  "/test-dvc-cascading.html": CT01_TEMPLATE,
+const FALLBACK_DVC_FORM_TEMPLATES = {
+  "/dvc-tthc-dang-ky-thuong-tru": FALLBACK_CT01_TEMPLATE,
+  "/test-dvc-cascading.html": FALLBACK_CT01_TEMPLATE,
   "/dvc-tthc-cap-lai-the-bhyt": {
     title: "Cấp lại thẻ bảo hiểm y tế do hỏng, mất",
     headings: [
@@ -499,25 +533,22 @@ function getPageDOMStructure() {
 function buildDOMSnapshotForDocument(rootDocument, rootWindow, framePath) {
   const title = rootDocument.title;
   const url = rootWindow.location.href;
-  const matchedRoute = Object.keys(DVC_FORM_TEMPLATES).find(route => url.includes(route));
+  const templates = getFormTemplates();
+  const matchedRoute = findTemplateRoute(rootWindow.location, templates);
 
   if (matchedRoute) {
     console.log("[ThôngDVC] Khớp mẫu template DVC. Đọc giá trị hiện tại của form và trả về cache.");
-    const template = JSON.parse(JSON.stringify(DVC_FORM_TEMPLATES[matchedRoute]));
-    template.formFields = template.formFields.map((field, index) => {
-      const el = rootDocument.querySelector(field.selector);
-      return enrichTemplateField(field, el, framePath, index);
-    });
-    template.buttons = template.buttons.map((button, index) => {
-      const el = rootDocument.querySelector(button.selector);
-      return enrichTemplateButton(button, el, framePath, index + template.formFields.length);
-    });
+    const template = JSON.parse(JSON.stringify(templates[matchedRoute]));
+    const snapshot = buildEphemeralSnapshot(template, rootDocument, rootWindow, framePath);
     return {
       title,
       url,
-      headings: template.headings,
-      formFields: template.formFields,
-      buttons: template.buttons
+      mode: snapshot.mode,
+      pageState: snapshot.pageState,
+      instructionsForAgent: snapshot.instructionsForAgent,
+      headings: snapshot.headings,
+      formFields: snapshot.formFields,
+      buttons: snapshot.buttons
     };
   }
 
@@ -560,6 +591,8 @@ function buildDOMSnapshotForDocument(rootDocument, rootWindow, framePath) {
   return {
     title,
     url,
+    mode: "scrape",
+    pageState: detectTaxLoginPageState(rootWindow, rootDocument),
     headings,
     formFields,
     buttons
@@ -567,6 +600,11 @@ function buildDOMSnapshotForDocument(rootDocument, rootWindow, framePath) {
 }
 
 function enrichTemplateField(field, el, framePath, documentOrder) {
+  const sensitivity = getFieldSensitivity(el, field);
+  if (sensitivity.piiType === "csrf") {
+    return null;
+  }
+
   const base = {
     ...field,
     role: field.tag === "select" ? "combobox" : "textbox",
@@ -578,9 +616,20 @@ function enrichTemplateField(field, el, framePath, documentOrder) {
     framePath,
     bounds: null,
     documentOrder,
-    semanticId: `${framePath}::${field.tag}::${field.id || field.name || normalizeText(field.label, 40)}::${documentOrder}`
+    semanticId: `${framePath}::${field.tag}::${field.id || field.name || normalizeText(field.label, 40)}::${documentOrder}`,
+    value: "",
+    safeValue: "",
+    sensitive: sensitivity.sensitive,
+    piiType: sensitivity.piiType,
+    visible: false,
+    enabled: false
   };
-  if (!el) return base;
+  if (!el) {
+    if (field.tag === "select") {
+      base.options = buildSafeOptions(el, field, sensitivity);
+    }
+    return base;
+  }
   const record = buildFieldRecord(el, el.ownerDocument, framePath, documentOrder);
   return { ...base, ...record, label: field.label || record.label };
 }
@@ -601,6 +650,141 @@ function enrichTemplateButton(button, el, framePath, documentOrder) {
   return { ...base, ...record, text: button.text || record.text };
 }
 
+function getFormTemplates() {
+  return window.DVC_FORM_TEMPLATES || FALLBACK_DVC_FORM_TEMPLATES || {};
+}
+
+function buildEphemeralSnapshot(template, rootDocument, rootWindow, framePath) {
+  const formFields = (template.formFields || [])
+    .map((field, index) => {
+      const el = querySelectorSafe(rootDocument, field.selector);
+      return enrichTemplateField(field, el, framePath, index);
+    })
+    .filter(Boolean);
+
+  return {
+    mode: "ephemeral",
+    pageState: detectTaxLoginPageState(rootWindow, rootDocument),
+    instructionsForAgent: template.instructionsForAgent || "",
+    headings: template.headings || [],
+    formFields,
+    buttons: buildTemplateButtons(template.buttons || [], rootDocument, framePath, formFields.length)
+  };
+}
+
+function buildTemplateButtons(buttons, rootDocument, framePath, offset = 0) {
+  return buttons.map((button, index) => {
+    const el = querySelectorSafe(rootDocument, button.selector);
+    const record = enrichTemplateButton(button, el, framePath, offset + index);
+    return {
+      ...record,
+      visible: el ? isVisibleElement(el) : false,
+      enabled: el ? !el.disabled && !el.hasAttribute("disabled") : false
+    };
+  });
+}
+
+function buildSafeOptions(el, field, sensitivity) {
+  const sourceOptions = el?.options ? Array.from(el.options) : (field.options || []);
+  return sourceOptions
+    .map((opt, index) => {
+      const text = cleanText(opt.text || opt.textContent || "");
+      const value = opt.value || "";
+      const selected = Boolean(opt.selected);
+      if (sensitivity.piiType === "mst") {
+        return {
+          text: text ? `MST option ${index + 1}` : "",
+          value: value ? `[MST_OPTION_${index + 1}]` : "",
+          safeValue: value ? `[MST_OPTION_${index + 1}]` : "",
+          selected
+        };
+      }
+      return { text, value, safeValue: value, selected };
+    })
+    .filter(opt => opt.text.length > 0)
+    .slice(0, 50);
+}
+
+function getFieldSensitivity(el, field) {
+  const name = (field.name || el?.getAttribute("name") || "").toLowerCase();
+  const id = (field.id || el?.id || "").toLowerCase();
+  const selector = (field.selector || "").toLowerCase();
+  const type = (field.type || el?.getAttribute("type") || "").toLowerCase();
+  const piiType = field.piiType || inferPiiType({ name, id, selector, type });
+
+  return {
+    sensitive: Boolean(field.sensitive) || piiType !== "none",
+    piiType
+  };
+}
+
+function inferPiiType({ name, id, selector, type }) {
+  const haystack = `${name} ${id} ${selector}`;
+  if (name === "_csrf" || haystack.includes("csrf")) return "csrf";
+  if (type === "password" || haystack.includes("matkhau") || haystack.includes("password")) return "password";
+  if (haystack.includes("captcha")) return "captcha";
+  if (haystack.includes("mst") || haystack.includes("tax-code") || haystack.includes("choosemst")) return "mst";
+  return "none";
+}
+
+function sanitizeFieldValue(el, sensitivity) {
+  if (!el || sensitivity.piiType === "csrf") return "";
+  if (sensitivity.piiType === "password" || sensitivity.piiType === "captcha") return "";
+  if (sensitivity.piiType === "mst") return el.value ? "[MST_AVAILABLE]" : "";
+  return el.value || "";
+}
+
+function detectTaxLoginPageState(rootWindow = window, rootDocument = document) {
+  const path = rootWindow.location.pathname;
+  if (!path.includes("/tthc/login") && !path.includes("/tthc/home")) {
+    return "unknown";
+  }
+
+  if (hasVisibleSelector(rootDocument, "select[name='chooseMst']")) return "tax_code_select";
+  if (hasVisibleSelector(rootDocument, "input[name='captchaCbt'], input[name='captcha']")) return "captcha_required";
+  if (hasVisibleSelector(rootDocument, "input[name='tenDNCbt'], input[name='matKhauCbt']")) return "credential_modal_cbt";
+  if (hasVisibleSelector(rootDocument, "input[name='tenDN'], input[name='matKhau']")) return "credential_modal_ldap";
+
+  const visibleText = cleanText(rootDocument.body?.innerText || "").toLowerCase();
+  if (visibleText.includes("cá nhân") && visibleText.includes("đăng nhập")) {
+    return "subject_modal";
+  }
+  return "landing";
+}
+
+function hasVisibleSelector(rootDocument, selector) {
+  try {
+    return Array.from(rootDocument.querySelectorAll(selector)).some(isVisibleElement);
+  } catch (err) {
+    return false;
+  }
+}
+
+function querySelectorSafe(rootDocument, selector) {
+  if (!selector) return null;
+  try {
+    return rootDocument.querySelector(selector);
+  } catch (err) {
+    console.warn("[ThôngDVC] Selector không hợp lệ:", selector, err.message);
+    return null;
+  }
+}
+
+function cleanText(value) {
+  return normalizeText(value, 160);
+}
+
+function findTemplateRoute(locationObj, templates) {
+  const routes = Object.keys(templates || {});
+  const pathname = locationObj.pathname.replace(/\/+$/, "") || "/";
+  const href = locationObj.href;
+
+  return routes.find(route => {
+    const normalizedRoute = route.replace(/\/+$/, "") || "/";
+    return pathname === normalizedRoute || pathname.startsWith(`${normalizedRoute}/`) || href.includes(route);
+  });
+}
+
 function shouldSkipInteractiveElement(el) {
   if (el.type === "hidden") return true;
   if (!isVisibleElement(el)) return true;
@@ -615,6 +799,7 @@ function buildFieldRecord(el, rootDocument, framePath, documentOrder) {
   const placeholder = el.getAttribute("placeholder") || "";
   const label = getAssociatedLabel(el, rootDocument);
   const role = el.getAttribute("role") || (tag === "select" ? "combobox" : tag === "textarea" ? "textbox" : "textbox");
+  const sensitivity = getFieldSensitivity(el, {});
   const fieldInfo = {
     semanticId: buildSemanticId(el, documentOrder, framePath),
     role,
@@ -624,7 +809,12 @@ function buildFieldRecord(el, rootDocument, framePath, documentOrder) {
     name,
     placeholder,
     label,
-    value: type === "password" ? "******" : (el.value || ""),
+    value: sanitizeFieldValue(el, sensitivity),
+    safeValue: sanitizeFieldValue(el, sensitivity),
+    sensitive: sensitivity.sensitive,
+    piiType: sensitivity.piiType,
+    visible: isVisibleElement(el),
+    enabled: !el.disabled && !el.hasAttribute("disabled"),
     required: el.hasAttribute("required") || el.getAttribute("aria-required") === "true",
     disabled: Boolean(el.disabled || el.getAttribute("aria-disabled") === "true"),
     readonly: Boolean(el.readOnly || el.hasAttribute("readonly")),
@@ -638,14 +828,7 @@ function buildFieldRecord(el, rootDocument, framePath, documentOrder) {
   };
 
   if (tag === "select") {
-    fieldInfo.options = Array.from(el.options)
-      .map(opt => ({
-        text: normalizeText(opt.text),
-        value: opt.value,
-        selected: opt.selected
-      }))
-      .filter(opt => opt.text.length > 0)
-      .slice(0, 50);
+    fieldInfo.options = buildSafeOptions(el, {}, sensitivity);
   }
 
   return fieldInfo;
