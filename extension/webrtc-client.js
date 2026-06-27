@@ -263,13 +263,13 @@ export async function initializeVoiceAssistant(onEvent) {
   });
 
   await session.connect({});
-  console.log("[ThôngDVC] Phiên thoại Realtime đã sẵn sàng!");
+  console.log("[EasyDVC] Phiên thoại Realtime đã sẵn sàng!");
 
   // Gửi DOM snapshot hiện tại để Agent có ngữ cảnh ngay lập tức
   try {
     const domSnapshot = await sendCommandToActiveTab("read_dom", {});
     if (domSnapshot && domSnapshot.status === "success") {
-      console.log("[ThôngDVC] Đã gửi cấu trúc trang hiện tại cho Agent.");
+      console.log("[EasyDVC] Đã gửi cấu trúc trang hiện tại cho Agent.");
       session.sendMessage(
         `Hệ thống: Người dùng vừa kết nối thoại. Dưới đây là cấu trúc trang web hiện tại bác đang xem (Bác KHÔNG cần đọc to hay lặp lại thông tin này trừ khi được hỏi):\n` +
         `Tiêu đề trang: ${domSnapshot.page.title}\n` +
@@ -281,7 +281,7 @@ export async function initializeVoiceAssistant(onEvent) {
       );
     }
   } catch (err) {
-    console.error("[ThôngDVC] Lỗi gửi DOM ban đầu:", err);
+    console.error("[EasyDVC] Lỗi gửi DOM ban đầu:", err);
   }
 
   // Nhận toàn bộ raw events từ OpenAI
@@ -333,21 +333,21 @@ export async function initializeVoiceAssistant(onEvent) {
 
   // Phát hiện AI nói
   session.on("audio_start", () => {
-    console.log("[ThôngDVC] AI đang nói...");
+    console.log("[EasyDVC] AI đang nói...");
     if (onEvent) {
       onEvent({ type: "status", status: "ai_speaking" });
     }
   });
   
   session.on("audio_stopped", () => {
-    console.log("[ThôngDVC] AI nói xong.");
+    console.log("[EasyDVC] AI nói xong.");
     if (onEvent) {
       onEvent({ type: "status", status: "ai_stopped" });
     }
   });
 
   session.on("error", ({ error }) => {
-    console.error("[ThôngDVC] Lỗi session:", error);
+    console.error("[EasyDVC] Lỗi session:", error);
     if (onEvent) {
       onEvent({ type: "error", error });
     }
@@ -360,7 +360,7 @@ export function closeVoiceSession(session) {
   if (session) {
     session.interrupt();
     session.close();
-    console.log("[ThôngDVC] Đã đóng phiên thoại.");
+    console.log("[EasyDVC] Đã đóng phiên thoại.");
   }
 }
 

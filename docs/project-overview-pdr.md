@@ -1,7 +1,7 @@
 # Project Overview & Product Development Requirements (PDR)
 
 ## 1. Giới thiệu dự án (Project Overview)
-**ThôngDVC** là trợ lý giọng nói thông minh được thiết kế đặc biệt dưới dạng Chrome Extension để hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến trên cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`). 
+**EasyDVC** là trợ lý giọng nói thông minh được thiết kế đặc biệt dưới dạng Chrome Extension để hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến trên cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`). 
 
 Hệ thống kết hợp sức mạnh giao tiếp tự nhiên của mô hình AI Realtime (OpenAI WebRTC) với khả năng tương tác trực tiếp lên trình duyệt để đơn giản hóa biểu mẫu và tối ưu hóa trải nghiệm cho người lớn tuổi.
 

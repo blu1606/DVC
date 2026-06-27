@@ -1,6 +1,6 @@
-# 👵👴 ThôngDVC - Trợ lý thoại thông minh cho Dịch vụ công Việt Nam
+# 👵👴 EasyDVC - Trợ lý thoại thông minh cho Dịch vụ công Việt Nam
 
-**ThôngDVC** là một Chrome Extension thông minh được thiết kế đặc biệt nhằm giúp đỡ người cao tuổi tại Việt Nam dễ dàng thực hiện các dịch vụ công trực tuyến trên cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`) bằng giọng nói tự nhiên.
+**EasyDVC** là một Chrome Extension thông minh được thiết kế đặc biệt nhằm giúp đỡ người cao tuổi tại Việt Nam dễ dàng thực hiện các dịch vụ công trực tuyến trên cổng Dịch vụ công Quốc gia (`dichvucong.gov.vn`) bằng giọng nói tự nhiên.
 
 ---
 
@@ -62,5 +62,5 @@
 
 ### Bước 4: Kiểm thử E2E cục bộ
 1.  Mở tệp `DVC/test-dvc-cascading.html` trực tiếp bằng trình duyệt Chrome đã nạp Extension.
-2.  Nhấp vào biểu tượng Micro nổi của **ThôngDVC** ở góc dưới bên phải màn hình.
+2.  Nhấp vào biểu tượng Micro nổi của **EasyDVC** ở góc dưới bên phải màn hình.
 3.  Bấm nút **Bắt đầu nói** và giao tiếp để thử nghiệm các luồng: chưa đăng nhập, tự động điền hồ sơ cá nhân và tự động điền địa chỉ hành chính 3 cấp.

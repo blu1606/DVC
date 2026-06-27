@@ -1,6 +1,6 @@
 # Code Standards & Guidelines
 
-Dự án **ThôngDVC** tuân thủ các nguyên tắc thiết kế mã nguồn tối giản, hiệu quả và bảo mật cao để đảm bảo Chrome Extension hoạt động mượt mà trên bất kỳ trang dịch vụ công nào.
+Dự án **EasyDVC** tuân thủ các nguyên tắc thiết kế mã nguồn tối giản, hiệu quả và bảo mật cao để đảm bảo Chrome Extension hoạt động mượt mà trên bất kỳ trang dịch vụ công nào.
 
 ## 1. Nguyên tắc kiến trúc (Architectural Principles)
 *   **YAGNI (You Aren't Gonna Need It)**: Tránh phát triển các tính năng dư thừa, giữ mã nguồn tinh gọn dưới 200 dòng đối với các file chức năng độc lập (ngoại trừ các file template DOM tĩnh hoặc bundle biên dịch).

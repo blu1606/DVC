@@ -63735,11 +63735,11 @@ ${str(snapshot)}`);
       }
     });
     await session.connect({});
-    console.log("[Th\xF4ngDVC] Phi\xEAn tho\u1EA1i Realtime \u0111\xE3 s\u1EB5n s\xE0ng!");
+    console.log("[EasyDVC] Phi\xEAn tho\u1EA1i Realtime \u0111\xE3 s\u1EB5n s\xE0ng!");
     try {
       const domSnapshot = await sendCommandToActiveTab("read_dom", {});
       if (domSnapshot && domSnapshot.status === "success") {
-        console.log("[Th\xF4ngDVC] \u0110\xE3 g\u1EEDi c\u1EA5u tr\xFAc trang hi\u1EC7n t\u1EA1i cho Agent.");
+        console.log("[EasyDVC] \u0110\xE3 g\u1EEDi c\u1EA5u tr\xFAc trang hi\u1EC7n t\u1EA1i cho Agent.");
         session.sendMessage(
           `H\u1EC7 th\u1ED1ng: Ng\u01B0\u1EDDi d\xF9ng v\u1EEBa k\u1EBFt n\u1ED1i tho\u1EA1i. D\u01B0\u1EDBi \u0111\xE2y l\xE0 c\u1EA5u tr\xFAc trang web hi\u1EC7n t\u1EA1i b\xE1c \u0111ang xem (B\xE1c KH\xD4NG c\u1EA7n \u0111\u1ECDc to hay l\u1EB7p l\u1EA1i th\xF4ng tin n\xE0y tr\u1EEB khi \u0111\u01B0\u1EE3c h\u1ECFi):
 Ti\xEAu \u0111\u1EC1 trang: ${domSnapshot.page.title}
@@ -63755,7 +63755,7 @@ H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n (d\xE0nh cho ng\u01B0\
         );
       }
     } catch (err) {
-      console.error("[Th\xF4ngDVC] L\u1ED7i g\u1EEDi DOM ban \u0111\u1EA7u:", err);
+      console.error("[EasyDVC] L\u1ED7i g\u1EEDi DOM ban \u0111\u1EA7u:", err);
     }
     session.on("transport_event", (event) => {
       if (event && event.type === "conversation.item.input_audio_transcription.completed") {
@@ -63795,19 +63795,19 @@ H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n (d\xE0nh cho ng\u01B0\
       }
     });
     session.on("audio_start", () => {
-      console.log("[Th\xF4ngDVC] AI \u0111ang n\xF3i...");
+      console.log("[EasyDVC] AI \u0111ang n\xF3i...");
       if (onEvent) {
         onEvent({ type: "status", status: "ai_speaking" });
       }
     });
     session.on("audio_stopped", () => {
-      console.log("[Th\xF4ngDVC] AI n\xF3i xong.");
+      console.log("[EasyDVC] AI n\xF3i xong.");
       if (onEvent) {
         onEvent({ type: "status", status: "ai_stopped" });
       }
     });
     session.on("error", ({ error: error51 }) => {
-      console.error("[Th\xF4ngDVC] L\u1ED7i session:", error51);
+      console.error("[EasyDVC] L\u1ED7i session:", error51);
       if (onEvent) {
         onEvent({ type: "error", error: error51 });
       }
@@ -63818,7 +63818,7 @@ H\xE3y ch\xE0o b\xE1c m\u1ED9t c\xE1ch th\xE2n thi\u1EC7n (d\xE0nh cho ng\u01B0\
     if (session) {
       session.interrupt();
       session.close();
-      console.log("[Th\xF4ngDVC] \u0110\xE3 \u0111\xF3ng phi\xEAn tho\u1EA1i.");
+      console.log("[EasyDVC] \u0110\xE3 \u0111\xF3ng phi\xEAn tho\u1EA1i.");
     }
   }
   if (typeof window !== "undefined") {

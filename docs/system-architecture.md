@@ -1,6 +1,6 @@
 # System Architecture
 
-Hệ thống **ThôngDVC** sử dụng kiến trúc phân lớp kết hợp mô hình Hybrid Client-Agent để tối đa hóa tốc độ phản hồi và bảo vệ thông tin nhạy cảm.
+Hệ thống **EasyDVC** sử dụng kiến trúc phân lớp kết hợp mô hình Hybrid Client-Agent để tối đa hóa tốc độ phản hồi và bảo vệ thông tin nhạy cảm.
 
 ## 1. Sơ đồ kiến trúc tổng quan (High-Level Architecture)
 

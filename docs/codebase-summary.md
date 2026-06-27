@@ -1,6 +1,6 @@
 # Codebase Summary
 
-Cấu trúc thư mục của dự án **ThôngDVC** bao gồm hai thành phần chính: Chrome Extension (Client) và Agent Bridge Server (Backend).
+Cấu trúc thư mục của dự án **EasyDVC** bao gồm hai thành phần chính: Chrome Extension (Client) và Agent Bridge Server (Backend).
 
 ## 1. Bản đồ thư mục (Directory Tree)
 

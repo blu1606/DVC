@@ -181,13 +181,13 @@ async def bulk_fill_profile() -> dict:
 
 
 # =============================================================================
-# AGENT — Brain của ThôngDVC
+# AGENT — Brain của EasyDVC
 # Không dùng {"type": "computer"} dict — dùng đúng Tool objects
 # Model: "gpt-4o" (tồn tại xác thực). "gpt-5.5" không có trong public docs.
 # =============================================================================
 
 agent = Agent(
-    name="ThongDVC_Brain",
+    name="EasyDVC_Brain",
     instructions=(
         "Bạn là trợ lý dịch vụ công hỗ trợ người cao tuổi Việt Nam thực hiện các thủ tục hành chính trực tuyến.\n"
         "1. Khi bắt đầu hoặc khi trang thay đổi, hãy luôn gọi `check_login_status` đầu tiên. Nếu kết quả `logged_in` là false, hãy thông báo thân thiện và gọi `navigate_to_login` để tự động điều hướng người dân sang trang đăng nhập.\n"

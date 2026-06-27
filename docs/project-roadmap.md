@@ -1,12 +1,12 @@
 # Project Roadmap & Changelog
 
-Tài liệu này theo dõi tiến độ phát triển của dự án **ThôngDVC** theo các cột mốc quan trọng.
+Tài liệu này theo dõi tiến độ phát triển của dự án **EasyDVC** theo các cột mốc quan trọng.
 
 ## 1. Lộ trình phát triển (Development Roadmap)
 
 ```mermaid
 gantt
-    title Lộ trình ThôngDVC
+    title Lộ trình EasyDVC
     dateFormat  YYYY-MM-DD
     section Giai đoạn 1: Core & Autofill
     Kiểm tra Login & Điều hướng động :done, 2026-06-25, 2d

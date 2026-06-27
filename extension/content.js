@@ -28,7 +28,7 @@ const FIELD_MAPPINGS = {
 const socket = new WebSocket("ws://localhost:8000");
 
 socket.addEventListener("open", () => {
-  console.log("[ThôngDVC] Extension đã kết nối với Bridge Server.");
+  console.log("[EasyDVC] Extension đã kết nối với Bridge Server.");
 });
 
 socket.addEventListener("message", async (event) => {
@@ -36,7 +36,7 @@ socket.addEventListener("message", async (event) => {
   try {
     command = JSON.parse(event.data);
   } catch (e) {
-    console.error("[ThôngDVC] JSON không hợp lệ:", event.data);
+    console.error("[EasyDVC] JSON không hợp lệ:", event.data);
     return;
   }
 
@@ -45,7 +45,7 @@ socket.addEventListener("message", async (event) => {
 });
 
 socket.addEventListener("close", () => {
-  console.warn("[ThôngDVC] Mất kết nối với Bridge Server.");
+  console.warn("[EasyDVC] Mất kết nối với Bridge Server.");
 });
 
 // Lắng nghe lệnh trực tiếp từ Extension Popup (cho WebRTC client-side)
@@ -225,7 +225,7 @@ async function handleCommand(command) {
       }
     }
 
-    console.warn(`[ThôngDVC] Lỗi: Hành động không hỗ trợ: ${action}`);
+    console.warn(`[EasyDVC] Lỗi: Hành động không hỗ trợ: ${action}`);
     return { status: "error", message: `Hành động không hỗ trợ: ${action}` };
 
   } catch (error) {
@@ -796,7 +796,7 @@ function showPIIConfirmModal(maskedText, rawText, tokens) {
 }
 
 async function fillAddressCascading({ province, district, ward }) {
-  console.log("[ThôngDVC] Khởi chạy Cascading Address Autofill:", { province, district, ward });
+  console.log("[EasyDVC] Khởi chạy Cascading Address Autofill:", { province, district, ward });
   const delay = ms => new Promise(res => setTimeout(res, ms));
 
   const provEl = document.querySelector("select#prov");
@@ -842,11 +842,11 @@ async function selectDropdownOptionByText(selectEl, text) {
   
   selectEl.value = option.value;
   selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-  console.log(`[ThôngDVC] Đã chọn '${option.text}' (${option.value}) cho #${selectEl.id}`);
+  console.log(`[EasyDVC] Đã chọn '${option.text}' (${option.value}) cho #${selectEl.id}`);
 }
 
 async function bulkFillProfile(profile) {
-  console.log("[ThôngDVC] Khởi chạy Bulk Fill Profile:", profile);
+  console.log("[EasyDVC] Khởi chạy Bulk Fill Profile:", profile);
   if (!profile) {
     profile = {
       fullname: "NGUYỄN VĂN HÙNG",

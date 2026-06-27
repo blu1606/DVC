@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ThôngDVC Trợ lý Giọng nói",
+  "name": "EasyDVC Trợ lý Giọng nói",
   "version": "1.0",
   "description": "Trợ lý hỗ trợ người cao tuổi điền hồ sơ dịch vụ công bằng giọng nói và Generative UI.",
   "permissions": [

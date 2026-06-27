@@ -181,7 +181,7 @@
     <div class="thongdvc-panel" id="thongdvc-panel">
       <div class="thongdvc-header">
         <div>
-          <div class="thongdvc-title">👵👴 Trợ lý giọng nói ThôngDVC</div>
+          <div class="thongdvc-title">👵👴 Trợ lý giọng nói EasyDVC</div>
           <div class="thongdvc-status" id="thongdvc-status">Nhấn Bắt đầu để kết nối thoại</div>
         </div>
         <span class="thongdvc-close" id="thongdvc-close-btn">✕</span>
