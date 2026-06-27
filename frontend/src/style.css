@@ -1113,3 +1113,86 @@
             from { transform: scale(0.9); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
+
+        /* Đề án 06 National Banner */
+        .de-an-06-banner {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-top: 1px solid var(--color-border);
+            border-bottom: 1px solid var(--color-border);
+            padding: 24px 0;
+            margin-top: 16px;
+        }
+
+        .de-an-06-grid {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .de-an-badge-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .badge-national {
+            background-color: #ef4444;
+            color: white;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: fit-content;
+        }
+
+        .badge-project {
+            background-color: #0f3a6b;
+            color: white;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: fit-content;
+        }
+
+        .de-an-quote {
+            font-size: 15px;
+            font-style: italic;
+            line-height: 1.6;
+            color: var(--color-text-main);
+            margin: 0 0 6px 0;
+            border-left: 3px solid #f59e0b;
+            padding-left: 12px;
+            text-align: left;
+        }
+
+        .de-an-author {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            font-weight: 700;
+            display: block;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .de-an-06-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .de-an-badge-group {
+                align-items: center;
+            }
+            .badge-national, .badge-project {
+                width: fit-content;
+            }
+            .de-an-quote, .de-an-author {
+                text-align: center;
+                border-left: none;
+                padding-left: 0;
+            }
+        }
