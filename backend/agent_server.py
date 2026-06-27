@@ -422,7 +422,10 @@ async def _build_chat_plan(message: str, dom_snapshot: dict | None, current_url:
     if plan:
         intent = preflight.get("intent", {})
         current_step = next((step for step in plan.get("steps", []) if step.get("status") == "current"), None)
-        if intent.get("short_confirm") and current_step and current_step.get("requires_confirmation"):
+        if plan.get("auto_execute"):
+            auto_actions = await _execute_auto_plan_steps(plan)
+            actions.extend(auto_actions)
+        elif intent.get("short_confirm") and current_step and current_step.get("requires_confirmation"):
             execute_result = await _execute_confirmed_plan_step(current_step)
             actions.append(f"{current_step.get('tool')}={execute_result.get('status')}: {execute_result.get('message', '')}")
             if execute_result.get("status") == "success":
@@ -440,8 +443,84 @@ async def _build_chat_plan(message: str, dom_snapshot: dict | None, current_url:
     return plan, actions
 
 
+def _normalize_context_url(value: str | None) -> str:
+    if not value:
+        return ""
+    return str(value).split("#", 1)[0].rstrip("/")
+
+def _bridge_matches_request_context(expected_url: str | None, read_result: dict | None) -> bool:
+    if not expected_url:
+        return True
+    if not isinstance(read_result, dict) or read_result.get("status") != "success":
+        return False
+    bridge_url = _extract_current_url(read_result)
+    return _normalize_context_url(bridge_url) == _normalize_context_url(expected_url)
+
+async def _execute_auto_plan_steps(plan: dict) -> list[str]:
+    actions: list[str] = []
+    steps = plan.get("steps", [])
+    if not isinstance(steps, list):
+        return actions
+
+    expected_url = (plan.get("page") or {}).get("url")
+    bridge_snapshot = await bridge.execute_action("read_dom", {})
+    actions.append(f"read_dom={bridge_snapshot.get('status')}: context_guard")
+    if not _bridge_matches_request_context(expected_url, bridge_snapshot):
+        target_step = next((step for step in steps if isinstance(step, dict) and step.get("tool") in {"bulk_fill_profile", "fill_address_cascade"}), None)
+        if target_step:
+            target_step["status"] = "blocked"
+            target_step["done"] = False
+            target_step["reason"] = "Extension bridge đang nối tới tab khác. Hãy mở hoặc refresh trang mock rồi chạy lại demo."
+            plan["next_step_id"] = target_step.get("id")
+        plan["reply"] = "Dạ, cháu chưa điền vì extension đang nối tới tab khác. Bác mở hoặc refresh trang mock demo rồi gửi lại lệnh happy case."
+        return actions
+
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if step.get("tool") not in {"bulk_fill_profile", "fill_address_cascade"}:
+            continue
+
+        execute_result = await _execute_plan_step(step)
+        actions.append(f"{step.get('tool')}={execute_result.get('status')}: {execute_result.get('message', '')}")
+        if execute_result.get("status") == "success":
+            step["status"] = "done"
+            step["done"] = True
+        else:
+            step["status"] = "blocked"
+            step["done"] = False
+            step["reason"] = execute_result.get("message") or "Không thực hiện được bước demo."
+            plan["next_step_id"] = step.get("id")
+            plan["reply"] = "Dạ, demo đang bị chặn ở bước điền dữ liệu. Bác kiểm tra lại trang mock rồi thử lại giúp cháu."
+            return actions
+
+    review_step = next((step for step in steps if isinstance(step, dict) and step.get("id") == "review"), None)
+    if review_step:
+        review_step["status"] = "current"
+        review_step["done"] = False
+        plan["next_step_id"] = "review"
+    plan["needs_user_confirmation"] = False
+    plan["reply"] = "Dạ, cháu đã điền xong thông tin mẫu và địa chỉ 3 cấp. Bác kiểm tra lại trên form; cháu chưa bấm Nộp hồ sơ."
+    return actions
+
 async def _execute_confirmed_plan_step(step: dict) -> dict:
+    return await _execute_plan_step(step)
+
+async def _execute_plan_step(step: dict) -> dict:
     tool = step.get("tool")
+    if tool == "bulk_fill_profile":
+        return await bridge.execute_action("bulk_fill_profile", {
+            "profile": step.get("payload") or {},
+        })
+
+    if tool == "fill_address_cascade":
+        payload = step.get("payload") or {}
+        return await bridge.execute_action("fill_address_cascade", {
+            "province": payload.get("province"),
+            "district": payload.get("district"),
+            "ward": payload.get("ward"),
+        })
+
     if tool != "click_element":
         return {"status": "blocked", "message": "Bước này chưa có executor an toàn."}
 

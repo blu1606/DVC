@@ -10,6 +10,10 @@
 # testing
 /coverage
 
+# Python
+__pycache__/
+*.py[oc]
+
 # next.js
 /.next/
 /out/

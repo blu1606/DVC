@@ -81,12 +81,22 @@ def classify_intent(message: str, chat_history: list[dict[str, str]] | None = No
     )
     wants_move = any(keyword in normalized for keyword in ("di chuyen", "di toi", "mo", "chuyen", "bam", "click", "toi trang"))
     wants_browser_agent = any(keyword in normalized for keyword in ("browser use", "browser agent", "chrome rieng", "trinh duyet rieng", "tu browse"))
+    wants_happy_demo = any(keyword in normalized for keyword in (
+        "happy case",
+        "happycase",
+        "chay demo",
+        "demo happy",
+        "demo dien",
+        "dien mau",
+        "test luong chat",
+    ))
     return {
         "normalized": normalized,
         "wants_login": wants_login,
         "wants_tax": wants_tax,
         "wants_move": wants_move,
         "wants_browser_agent": wants_browser_agent,
+        "wants_happy_demo": wants_happy_demo,
         "short_confirm": short_confirm,
         "inherited_context": bool(inherited),
     }
@@ -176,6 +186,50 @@ def build_action_plan(message: str, preflight: dict) -> dict | None:
             [_step("browser_agent", "Mở browser agent dự phòng", "current", "browser_task")],
             "Dạ, DOM hiện tại chưa đủ để thao tác. Cháu sẽ chuyển sang browser agent dự phòng nếu backend đã bật tính năng này.",
             use_browser_agent=True,
+        )
+
+    if intent.get("wants_happy_demo"):
+        steps = [
+            _step("read_dom", "Đọc trang mock thường trú", "done", "read_dom"),
+            _step(
+                "fill_profile",
+                "Điền thông tin công dân mẫu",
+                "current",
+                "bulk_fill_profile",
+                payload={
+                    "fullname": "NGUYỄN VĂN HÙNG",
+                    "birthday": "15/05/1955",
+                    "cccd": "037155001234",
+                    "phone": "0987654321",
+                },
+            ),
+            _step(
+                "fill_address",
+                "Chọn địa chỉ Hà Nội - Cầu Giấy - Dịch Vọng Hậu",
+                "todo",
+                "fill_address_cascade",
+                payload={
+                    "province": "Hà Nội",
+                    "district": "Cầu Giấy",
+                    "ward": "Dịch Vọng Hậu",
+                },
+            ),
+            _step("review", "Bác kiểm tra lại thông tin đã điền", "todo", "none"),
+            _step(
+                "submit_guard",
+                "Không tự bấm Nộp hồ sơ",
+                "blocked",
+                "none",
+                sensitive=True,
+                reason="Demo dừng trước hành động nộp hồ sơ.",
+            ),
+        ]
+        return _plan(
+            "Demo happy case điền hồ sơ thường trú",
+            preflight,
+            steps,
+            "Dạ, cháu sẽ chạy demo happy case: điền thông tin mẫu, chọn địa chỉ 3 cấp, rồi dừng lại để bác kiểm tra; cháu chưa bấm Nộp hồ sơ.",
+            auto_execute=True,
         )
 
     if intent.get("wants_login") and login_state == "logged_in":
