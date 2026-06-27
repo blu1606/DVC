@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyDVC - Trợ lý thoại thông minh cho Dịch vụ công Việt Nam</title>
+    
+    <!-- Atkinson Hyperlegible Google Font - Designed for maximum readability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Color System - Soft UI Evolution & Accessible Contrast */
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-secondary: #3b82f6;
+            --color-secondary-bg: #eff6ff;
+            --color-cta: #f97316;
+            --color-cta-hover: #ea580c;
+            --color-bg: #f8fafc;
+            --color-card-bg: #ffffff;
+            --color-text-main: #1e293b;
+            --color-text-muted: #475569;
+            --color-border: rgba(226, 232, 240, 0.8);
+            --color-success: #10b981;
+            --color-record: #ef4444;
+            
+            /* Shadows & Blur effects */
+            --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 8px rgba(0, 0, 0, 0.02);
+            --shadow-medium: 0 20px 40px rgba(37, 99, 235, 0.06), 0 1px 10px rgba(0, 0, 0, 0.03);
+            --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.2);
+            
+            /* Typography & Layout spacing */
+            --font-main: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+        }
+
+        /* Base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text-main);
+            line-height: 1.6;
+            font-size: 18px; /* High accessibility base font size */
+            overflow-x: hidden;
+        }
+
+        /* Focus outline style for keyboard accessibility */
+        *:focus-visible {
+            outline: 3px solid var(--color-cta);
+            outline-offset: 2px;
+        }
+
+        /* Accessibility utilities */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header Navigation */
+        .header {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--color-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .nav-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 80px;
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--color-text-main);
+        }
+
+        .logo-icon {
+            color: var(--color-primary);
+            width: 36px;
+            height: 36px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-badge {
+            background-color: var(--color-secondary-bg);
+            color: var(--color-primary);
+            font-size: 13px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 20px;
+            border: 1px solid rgba(37, 99, 235, 0.15);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--color-text-muted);
+            font-weight: 700;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--color-primary);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 700;
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--color-cta);
+            color: white;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-cta-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--color-primary);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--color-secondary-bg);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0 60px 0;
+            position: relative;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .hero-title {
+            font-size: 46px;
+            line-height: 1.25;
+            font-weight: 700;
+            color: var(--color-text-main);
+            margin-bottom: 24px;
+            letter-spacing: -1px;
+        }
+
+        .hero-description {
+            font-size: 20px;
+            color: var(--color-text-muted);
+            margin-bottom: 36px;
+            line-height: 1.7;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Interactive Simulator (Main Hero Visual) */
+        .hero-visual {
+            background-color: var(--color-card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-medium);
+            padding: 24px;
+            position: relative;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+
+        .sim-title-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sim-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            animation: pulse-red 2s infinite;
+        }
+
+        .sim-status {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--color-text-muted);
+        }
+
+        .sim-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 16px;
+        }
+
+        .sim-chat-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            padding-bottom: 12px;
+            max-height: 280px;
+        }
+
+        .bubble {
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            line-height: 1.5;
+            animation: fade-in-up 0.3s ease forwards;
+        }
+
+        .bubble-user {
+            background-color: var(--color-secondary-bg);
+            color: var(--color-text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(59, 130, 246, 0.1);
+        }
+
+        .bubble-ai {
+            background-color: #f1f5f9;
+            color: var(--color-text-main);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            text-align: right;
+        }
+
+        .bubble-secure {
+            background-color: #f0fdf4;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #065f46;
+            align-self: flex-end;
+        }
+
+        .sim-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--color-bg);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-speak {
+            background-color: var(--color-primary);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-speak:hover {
+            transform: scale(1.08);
+            background-color: var(--color-primary-hover);
+        }
+
+        .btn-speak.active {
+            background-color: var(--color-record);
+            animation: pulse-red-border 1.5s infinite;
+        }
+
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 30px;
+            flex-grow: 1;
+            margin-left: 16px;
+            opacity: 0.4;
+            transition: opacity 0.3s ease;
+        }
+
+        .waveform.active {
+            opacity: 1;
+        }
+
+        .bar {
+            width: 3px;
+            height: 8px;
+            background-color: var(--color-primary);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+        }
+
+        .waveform.active .bar {
+            animation: wave 1.2s ease-in-out infinite alternate;
+        }
+
+        /* Waveform bar stagger */
+        .waveform.active .bar:nth-child(1) { animation-delay: 0.1s; height: 16px; }
+        .waveform.active .bar:nth-child(2) { animation-delay: 0.3s; height: 24px; }
+        .waveform.active .bar:nth-child(3) { animation-delay: 0.5s; height: 12px; }
+        .waveform.active .bar:nth-child(4) { animation-delay: 0.2s; height: 20px; }
+        .waveform.active .bar:nth-child(5) { animation-delay: 0.4s; height: 28px; }
+        .waveform.active .bar:nth-child(6) { animation-delay: 0.6s; height: 10px; }
+        .waveform.active .bar:nth-child(7) { animation-delay: 0.15s; height: 22px; }
+        .waveform.active .bar:nth-child(8) { animation-delay: 0.35s; height: 14px; }
+
+        /* Simulated Confirm Modal */
+        .sim-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 80%;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            padding: 20px;
+            z-index: 10;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .sim-modal.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--color-text-main);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-text {
+            font-size: 15px;
+            color: var(--color-text-muted);
+            margin-bottom: 16px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn-modal {
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: none;
+            font-weight: 700;
+        }
+
+        .btn-modal-cancel {
+            background-color: #f1f5f9;
+            color: var(--color-text-muted);
+        }
+
+        .btn-modal-confirm {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        /* Bento Grid Features Section */
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 56px auto;
+        }
+
+        .section-tag {
+            color: var(--color-primary);
+            font-weight: 700;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .section-description {
+            font-size: 18px;
+            color: var(--color-text-muted);
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .bento-card {
+            background-color: var(--color-card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-soft);
+            padding: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .bento-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-medium);
+            border-color: rgba(37, 99, 235, 0.15);
+        }
+
+        .bento-col-2 {
+            grid-column: span 2;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background-color: var(--color-secondary-bg);
+            color: var(--color-primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .card-description {
+            font-size: 16px;
+            color: var(--color-text-muted);
+            line-height: 1.6;
+        }
+
+        /* Codex Security Section (Luồng bảo mật) */
+        .security-section {
+            background-color: #f1f5f9;
+            border-top: 1px solid var(--color-border);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .flow-container {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-soft);
+            padding: 40px;
+            margin-top: 48px;
+        }
+
+        .flow-steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            position: relative;
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .flow-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--color-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+            z-index: 2;
+        }
+
+        .flow-step-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .flow-step-desc {
+            font-size: 15px;
+            color: var(--color-text-muted);
+        }
+
+        /* Accessibility Guide Section */
+        .guide-steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin-top: 40px;
+        }
+
+        .guide-card {
+            background-color: var(--color-card-bg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            border: 1px solid var(--color-border);
+            position: relative;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .guide-num {
+            font-size: 64px;
+            font-weight: 700;
+            color: var(--color-secondary-bg);
+            line-height: 1;
+            position: absolute;
+            top: 16px;
+            right: 24px;
+            pointer-events: none;
+        }
+
+        .guide-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .guide-desc {
+            font-size: 16px;
+            color: var(--color-text-muted);
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Zalo OTP Mockup Section */
+        .phone-mockup-section {
+            background-color: var(--color-card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 48px;
+            align-items: center;
+            box-shadow: var(--shadow-soft);
+            margin-top: 48px;
+        }
+
+        .phone-frame {
+            width: 280px;
+            height: 520px;
+            border: 12px solid #1e293b;
+            border-radius: 36px;
+            background-color: #000;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.12);
+        }
+
+        .phone-notch {
+            width: 140px;
+            height: 18px;
+            background-color: #1e293b;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 5;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background-color: #f3f4f6;
+            padding: 30px 16px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-family: sans-serif; /* Standard phone font */
+        }
+
+        .zalo-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .zalo-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zalo-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .sms-box {
+            background-color: white;
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            max-width: 90%;
+            align-self: flex-start;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .sms-code {
+            font-weight: 700;
+            color: var(--color-cta);
+            font-size: 15px;
+            letter-spacing: 1px;
+        }
+
+        .notification {
+            position: absolute;
+            top: 12px;
+            left: 10px;
+            right: 10px;
+            background-color: rgba(255,255,255,0.95);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transform: translateY(-80px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        .notification.show {
+            transform: translateY(16px);
+            opacity: 1;
+        }
+
+        .notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 4px;
+        }
+
+        .notif-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-text-main);
+        }
+
+        .notif-desc {
+            font-size: 11px;
+            color: var(--color-text-muted);
+        }
+
+        /* Interactive trigger btn */
+        .btn-trigger-otp {
+            margin-top: 16px;
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 15px;
+        }
+
+        /* FAQ Accordion Section */
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .faq-item {
+            background-color: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-soft);
+            overflow: hidden;
+            transition: border-color 0.2s ease;
+        }
+
+        .faq-item:hover {
+            border-color: rgba(37, 99, 235, 0.15);
+        }
+
+        .faq-trigger {
+            width: 100%;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: none;
+            border: none;
+            text-align: left;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-text-main);
+            cursor: pointer;
+        }
+
+        .faq-trigger svg {
+            transition: transform 0.2s ease;
+            color: var(--color-text-muted);
+        }
+
+        .faq-item.active .faq-trigger svg {
+            transform: rotate(180deg);
+            color: var(--color-primary);
+        }
+
+        .faq-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .faq-content-inner {
+            padding: 0 24px 20px 24px;
+            color: var(--color-text-muted);
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* Call To Action Block */
+        .cta-block {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+            border-radius: var(--radius-lg);
+            padding: 64px 48px;
+            text-align: center;
+            color: white;
+            box-shadow: var(--shadow-medium);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-block::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+        }
+
+        .cta-title {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .cta-desc {
+            font-size: 19px;
+            max-width: 600px;
+            margin: 0 auto 32px auto;
+            opacity: 0.9;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: var(--color-text-main);
+            color: #cbd5e1;
+            padding: 48px 0;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 16px;
+        }
+
+        .footer-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        /* Keyframes */
+        @keyframes pulse-red {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse-red-border {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        @keyframes wave {
+            0% { transform: scaleY(0.4); }
+            100% { transform: scaleY(1.2); }
+        }
+
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1024px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+            .bento-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .bento-col-2 {
+                grid-column: span 2;
+            }
+            .flow-steps {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 32px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                font-size: 17px;
+            }
+            .nav-links {
+                display: none;
+            }
+            .hero-title {
+                font-size: 36px;
+            }
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+            .bento-col-2 {
+                grid-column: span 1;
+            }
+            .flow-steps {
+                grid-template-columns: 1fr;
+            }
+            .guide-steps {
+                grid-template-columns: 1fr;
+            }
+            .phone-mockup-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Upgraded Simulator CSS */
+        .sim-suggestions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .sim-pill {
+            background-color: var(--color-secondary-bg);
+            color: var(--color-primary);
+            border: 1px solid rgba(37, 99, 235, 0.15);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sim-pill:hover {
+            background-color: var(--color-primary);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .ikea-container {
+            background-color: #f1f5f9;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .ikea-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ikea-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ikea-input {
+            flex-grow: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+        }
+
+        .ikea-btn {
+            background-color: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .ikea-btn:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .ikea-result {
+            margin-top: 8px;
+            font-size: 14px;
+            background-color: white;
+            padding: 8px;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--color-success);
+            display: none;
+        }
+
+        .stepper-box {
+            display: flex;
+            justify-content: space-between;
+            background-color: white;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--color-text-muted);
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .step-item.active {
+            color: var(--color-primary);
+            font-weight: 700;
+            opacity: 1;
+        }
+
+        .step-item.done {
+            color: var(--color-success);
+            font-weight: 700;
+            opacity: 1;
+        }
+
+        .sim-success-card {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #065f46;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            margin-top: 12px;
+            box-shadow: var(--shadow-soft);
+            animation: scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes scale-up {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="header">
+        <div class="container nav-wrapper">
+            <a href="#" class="logo-group" aria-label="Trang chủ EasyDVC">
+                <!-- SVG Microphone Logo -->
+                <svg class="logo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+                <span class="logo-text">EasyDVC</span>
+                <span class="logo-badge" aria-label="Phiên bản 1.0.0">v1.0.0</span>
+            </a>
+            
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#tinh-nang">Tính năng</a></li>
+                    <li><a href="#bao-mat">Bảo mật Codex</a></li>
+                    <li><a href="#huong-dan">Hướng dẫn</a></li>
+                    <li><a href="#faq">Giải đáp</a></li>
+                </ul>
+            </nav>
+            
+            <a href="https://github.com/blu1606/DVC" class="btn btn-primary" aria-label="Tải extension từ Chrome Store">
+                <!-- Chrome SVG Icon -->
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 18.25c-3.452 0-6.25-2.798-6.25-6.25S8.548 5.75 12 5.75s6.25 2.798 6.25 6.25-2.798 6.25-6.25 6.25z"/>
+                </svg>
+                Cài đặt Extension
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero-grid">
+            <div>
+                <h1 class="hero-title">Trợ lý Giọng nói thông minh hỗ trợ Ông Bà làm Dịch vụ công</h1>
+                <p class="hero-description">
+                    <strong>EasyDVC</strong> là trợ lý giọng nói và điền tờ khai trực tuyến thông minh, đồng hành cùng chương trình chuyển đổi số quốc gia (Đề án 06). Giúp người cao tuổi dễ dàng tự làm thủ tục hành chính trực tuyến tại nhà mà không lo bị trả lại hồ sơ vì sai sót địa chính hoặc lỗi nhập liệu.
+                </p>
+                <div class="hero-ctas" style="margin-bottom: 24px;">
+                    <button class="btn btn-primary" onclick="startSim()" aria-label="Bắt đầu chạy thử tương tác ngay trên trang">
+                        Chạy thử tương tác
+                    </button>
+                    <a href="#huong-dan" class="btn btn-secondary" aria-label="Xem hướng dẫn cài đặt">
+                        Xem cách cài đặt
+                    </a>
+                </div>
+
+                <!-- Live PII Shield Tester (IKEA Effect) -->
+                <div class="ikea-container" aria-label="Bộ thử nghiệm Lá chắn Bảo mật PII">
+                    <div class="ikea-title">
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20" style="color: var(--color-primary)">
+                            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3.5 8V5.5a3.5 3.5 0 00-7 0V9h7z" clip-rule="evenodd"/>
+                        </svg>
+                        Tự thử nghiệm Lá chắn Bảo mật PII Shield
+                    </div>
+                    <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 10px;">
+                        Nhập thử số CCCD (12 số) hoặc SĐT (10 số) bất kỳ của bạn để xem PII Shield che giấu thông tin tại máy khách thế nào trước khi gửi ra ngoài:
+                    </p>
+                    <div class="ikea-row">
+                        <input type="text" class="ikea-input" id="ikea-input-field" placeholder="Ví dụ: 037199001234 hoặc 0912345678" aria-label="Nhập thông tin thử nghiệm">
+                        <button class="ikea-btn" onclick="testLivePII()">Chạy Lọc PII</button>
+                    </div>
+                    <div class="ikea-result" id="ikea-result-box"></div>
+                </div>
+            </div>
+            
+            <!-- Interactive Simulator Mockup -->
+            <div class="hero-visual" aria-label="Mô phỏng hoạt động của trợ lý thoại EasyDVC">
+                <div class="sim-header">
+                    <div class="sim-title-group">
+                        <div class="sim-dot" id="sim-dot-status" style="background-color: #10b981;"></div>
+                        <span class="sim-status" id="sim-status-text">Sẵn sàng hỗ trợ bác</span>
+                    </div>
+                    <span class="logo-badge">Mô phỏng</span>
+                </div>
+                
+                <div class="sim-content">
+                    <!-- Progress Stepper (Labor Illusion) -->
+                    <div class="stepper-box" id="sim-stepper">
+                        <div class="step-item" id="step-match">1. Nhận dạng form</div>
+                        <div class="step-item" id="step-pii">2. Bảo mật PII</div>
+                        <div class="step-item" id="step-fill">3. Điền tự động</div>
+                    </div>
+
+                    <div class="sim-chat-area" id="sim-chat-area">
+                        <div style="color: var(--color-text-muted); text-align: center; margin-top: 50px; font-size: 16px;">
+                            Click các nút <strong>Gợi ý thoại nhanh</strong> bên dưới hoặc bấm nút <strong>Chạy thử tương tác</strong> để xem cách hoạt động.
+                        </div>
+                    </div>
+                    
+                    <!-- PII Shield Modal Confirmation -->
+                    <div class="sim-modal" id="sim-modal">
+                        <div class="modal-title">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style="color: var(--color-success)">
+                                <path fill-rule="evenodd" d="M2.166 4.9C2.903 2.86 5.185 1.5 7.616 1.5h4.768c2.43 0 4.713 1.36 5.45 3.4.921 2.545.244 5.347-1.468 7.06a8.91 8.91 0 0 1-4.015 2.197l-.601.144a1 1 0 0 1-.464 0l-.601-.144a8.91 8.91 0 0 1-4.015-2.197C1.922 10.247 1.245 7.445 2.166 4.9zM10 11.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" clip-rule="evenodd" />
+                            </svg>
+                            Bảo vệ dữ liệu (PII Shield)
+                        </div>
+                        <p class="modal-text" id="modal-desc-text">Bạn có đồng ý điền số CCCD và SĐT thật vào biểu mẫu không?</p>
+                        <div class="modal-actions">
+                            <button class="btn-modal btn-modal-cancel" onclick="cancelPII()">Hủy</button>
+                            <button class="btn-modal btn-modal-confirm" onclick="confirmPII()">Đồng ý</button>
+                        </div>
+                    </div>
+
+                    <!-- Voice Wayfinder Suggestions -->
+                    <div class="sim-suggestions" id="sim-suggestions">
+                        <button class="sim-pill" onclick="startScenario('bhyt')">🎙️ Cấp lại thẻ BHYT</button>
+                        <button class="sim-pill" onclick="startScenario('thuongtru')">🎙️ Đăng ký thường trú</button>
+                    </div>
+
+                    <div class="sim-controls">
+                        <button class="btn-speak" id="btn-speak" onclick="toggleSpeech()" aria-label="Bấm để nói">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                            </svg>
+                        </button>
+                        
+                        <div class="waveform" id="waveform">
+                            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Grid Features Section -->
+    <section class="section" id="tinh-nang">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Tính năng vượt trội</span>
+                <h2 class="section-title">Hỗ trợ toàn diện bằng Trí tuệ nhân tạo chuyên biệt</h2>
+                <p class="section-description">Giải quyết triệt để các rào cản hành chính số tại Việt Nam mà không làm thay đổi hay can thiệp hệ thống máy chủ chính phủ.</p>
+            </div>
+            
+            <div class="bento-grid">
+                <!-- VAD Card -->
+                <div class="bento-card">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Thoại tiếng Việt rảnh tay</h3>
+                    <p class="card-description">Không cần bấm giữ. Hệ thống tự động nhận diện thời điểm người dùng bắt đầu nói và kết thúc nói để phản hồi lễ phép.</p>
+                </div>
+
+                <!-- DOM Annotation Card -->
+                <div class="bento-card bento-col-2">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">DOM Annotation API - Gán nhãn ngữ nghĩa</h3>
+                    <p class="card-description">EasyDVC tự động quét trang web, gán các mã thẻ nhãn ngữ nghĩa ẩn để AI Codex đọc trực tiếp cấu trúc HTML chính xác 100%. Không cần sử dụng các giải pháp Computer Vision tốn băng thông và có độ trễ lớn.</p>
+                </div>
+
+                <!-- PII Shield Card -->
+                <div class="bento-card bento-col-2">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Lá chắn Bảo mật PII Shield (Local Zero-State)</h3>
+                    <p class="card-description">Mọi số CCCD, Họ tên, Số điện thoại đều bị lọc, che giấu thành token bảo mật ngay tại thiết bị của người dùng. Dữ liệu thật chỉ được giải mã và điền ngược lại ô nhập liệu biểu mẫu khi có sự phê duyệt trực quan tại máy khách.</p>
+                </div>
+
+                <!-- AJAX Polling Cascading Dropdown Card -->
+                <div class="bento-card">
+                    <div class="card-icon" aria-hidden="true">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Đợi đồng bộ AJAX 3 cấp</h3>
+                    <p class="card-description">Cơ chế tự động hóa thăm dò vòng lặp (polling) 200ms giúp điền chuẩn xác luồng địa phương Tỉnh -> Huyện -> Xã bất chấp sự trễ tải dữ liệu bất đồng bộ.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Codex Security & Platform Architecture Section -->
+    <section class="section security-section" id="bao-mat">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">An toàn dữ liệu</span>
+                <h2 class="section-title">Kiến trúc bảo mật hai lớp Codex PII</h2>
+                <p class="section-description">Đảm bảo tuân thủ nghiêm ngặt Luật An ninh mạng Việt Nam. Không lưu trữ thông tin công dân trên máy chủ trung gian.</p>
+            </div>
+            
+            <div class="flow-container" aria-label="Sơ đồ luồng xử lý thông tin bảo mật">
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-badge">1</div>
+                        <h4 class="flow-step-title">Nhận dạng Cục bộ</h4>
+                        <p class="flow-step-desc">Regex tại trình duyệt phát hiện số CCCD/SĐT và che giấu thành khóa token.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">2</div>
+                        <h4 class="flow-step-title">Lọc PII Azure</h4>
+                        <p class="flow-step-desc">Cổng Azure Gateway lọc sạch dữ liệu thô một lần nữa trước khi chuyển tiếp.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">3</div>
+                        <h4 class="flow-step-title">Gửi suy luận AI</h4>
+                        <p class="flow-step-desc">API đám mây Codex chỉ nhận được token vô danh để lập luận ngữ cảnh biểu mẫu.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-badge">4</div>
+                        <h4 class="flow-step-title">Giải mã Cục bộ</h4>
+                        <p class="flow-step-desc">Sau khi người dân bấm "Đồng ý", token mới được giải mã trên RAM client để điền.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Zalo OTP Integration Preview -->
+    <section class="section">
+        <div class="container">
+            <div class="phone-mockup-section">
+                <div>
+                    <span class="section-tag">Zalo OTP Sync Bridge</span>
+                    <h2 class="section-title" style="font-size: 32px; margin-bottom: 20px;">Đồng bộ mã OTP SMS qua Zalo Bot thông minh</h2>
+                    <p class="hero-description" style="font-size: 17px;">
+                        Người cao tuổi thường bối rối khi vừa nhìn máy tính vừa tìm điện thoại để đọc mã OTP. EasyDVC giải quyết bằng cách tích hợp <strong>Zalo Bot đồng hành</strong>.
+                    </p>
+                    <p class="hero-description" style="font-size: 17px;">
+                        Khi OTP từ Tổng đài DVC gửi đến số điện thoại, Zalo Bot tự động bắt mã và gửi WebSocket bảo mật về extension để tự động nhập vào biểu mẫu trực tiếp.
+                    </p>
+                    <button class="btn btn-primary btn-trigger-otp" onclick="triggerOTPSim()">
+                        Gửi OTP Giả Lập Thử
+                    </button>
+                </div>
+                
+                <!-- Phone Mockup Frame -->
+                <div class="phone-frame" aria-hidden="true">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <!-- Zalo Notification overlay -->
+                        <div class="notification" id="otp-notification">
+                            <div class="notif-header">
+                                <span>ZALO COMPANION</span>
+                                <span>vừa xong</span>
+                            </div>
+                            <div class="notif-title">EasyDVC Sync: Mã OTP DVC</div>
+                            <div class="notif-desc">Đã gửi mã <strong style="color:var(--color-cta)">983011</strong> tự động về tiện ích Chrome của bạn.</div>
+                        </div>
+
+                        <div class="zalo-header">
+                            <div class="zalo-avatar">DVC</div>
+                            <div class="zalo-name">Cổng DVC Quốc Gia</div>
+                        </div>
+                        <div class="sms-box">
+                            Mã xác thực OTP của ông/bà để hoàn thành hồ sơ dịch vụ công là <span class="sms-code">983011</span>. Vui lòng không chia sẻ mã này.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Guide Section -->
+    <section class="section" id="huong-dan">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Hướng dẫn cài đặt</span>
+                <h2 class="section-title">Chỉ mất vài bước để triển khai thử nghiệm</h2>
+                <p class="section-description">EasyDVC gồm 2 thành phần chính: Tiện ích Chrome Extension và Máy chủ Agent Backend trung gian.</p>
+            </div>
+            
+            <div style="max-width: 800px; margin: 0 auto; background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-soft);">
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 1: Tải mã nguồn & Đóng gói Chrome Extension</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Mở terminal trên máy tính và chạy các lệnh sau để tải dự án từ <a href="https://github.com/blu1606/DVC" style="color: var(--color-primary); font-weight: bold; text-decoration: underline;">GitHub Repository</a>:
+                </p>
+                <pre style="background: #0f172a; color: #f8fafc; padding: 12px 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; margin-bottom: 24px; border: none; text-align: left;">
+git clone https://github.com/blu1606/DVC.git
+cd DVC/extension
+pnpm install
+npx esbuild webrtc-client.js --bundle --outfile=webrtc-client.bundle.js</pre>
+
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 2: Nạp Extension vào Google Chrome</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Nạp extension đã giải nén vào trình duyệt Chrome của bạn:
+                </p>
+                <ol style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 24px; padding-left: 20px; line-height: 1.8;">
+                    <li>Mở Chrome và truy cập địa chỉ <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--color-primary);">chrome://extensions/</code></li>
+                    <li>Bật nút <strong>Chế độ nhà phát triển (Developer mode)</strong> ở góc trên bên phải.</li>
+                    <li>Chọn nút <strong>Tải tiện ích đã giải nén (Load unpacked)</strong> ở góc trái và chọn thư mục <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace;">DVC/extension</code>.</li>
+                </ol>
+
+                <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--color-text-dark);">Bước 3: Khởi chạy Python Agent Server (Tùy chọn)</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 12px;">
+                    Để chạy đầy đủ tính năng hội thoại âm thanh qua WebRTC/WebSocket:
+                </p>
+                <pre style="background: #0f172a; color: #f8fafc; padding: 12px 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; border: none; text-align: left;">
+cd ../backend
+python -m venv .venv
+# Trên Windows:
+.venv\Scripts\activate
+# Cài đặt thư viện & chạy server:
+pip install -r requirements.txt
+python agent_server.py</pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="section" id="faq">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Giải đáp thắc mắc</span>
+                <h2 class="section-title">Những câu hỏi thường gặp</h2>
+            </div>
+            
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Dự án EasyDVC có thu phí không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Không. EasyDVC là sản phẩm mã nguồn mở, được xây dựng phi lợi nhuận nhằm hỗ trợ tăng khả năng tiếp cận công nghệ cho người cao tuổi Việt Nam.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Dữ liệu cá nhân có bị đưa lên máy chủ AI không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Tuyệt đối không. Toàn bộ thông tin định danh như số CCCD, Họ tên, SĐT đều được lọc bỏ, che giấu dưới dạng các token vô danh ngay trên máy tính của bạn trước khi đưa ra ngoài để phân tích. Sau khi hoàn tất và được bạn cho phép thông qua hộp thoại Modal, extension mới khôi phục số liệu từ RAM để tự động nhập vào biểu mẫu.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        <span>Extension có nhận diện được giọng nói vùng miền không?</span>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="faq-content">
+                        <div class="faq-content-inner">
+                            Có. Nhờ việc tích hợp OpenAI Realtime API cùng mô hình nhận dạng giọng nói nâng cao của hệ sinh thái Codex, trợ lý giọng nói EasyDVC nhận diện cực kỳ tốt giọng nói tiếng Việt ở cả 3 miền Bắc, Trung, Nam với văn phong trò chuyện tự nhiên hàng ngày.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call To Action Block -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-block">
+                <h2 class="cta-title">Mang công nghệ số đến gần hơn với cha mẹ</h2>
+                <p class="cta-desc">Giúp người cao tuổi trong gia đình tự tin làm thủ tục trực tuyến rảnh tay, không ngại rào cản thao tác.</p>
+                <div class="cta-buttons">
+                    <a href="https://github.com/blu1606/DVC" class="btn btn-primary" style="background-color: white; color: var(--color-primary);">
+                        Tải Extension Miễn Phí
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-wrapper">
+            <a href="#" class="footer-logo">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+                <span>EasyDVC</span>
+            </a>
+            
+            <p>&copy; 2026 EasyDVC. Mã nguồn mở phục vụ cộng đồng.</p>
+            
+            <ul class="footer-links">
+                <li><a href="https://github.com/blu1606/DVC">GitHub</a></li>
+                <li><a href="#bao-mat">Bảo mật</a></li>
+            </ul>
+        </div>
+    </footer>
+
+    <!-- Interactive Simulator Logic -->
+    <script>
+        let simIntervals = [];
+        let isSimulating = false;
+        let activeScenario = 'bhyt';
+        
+        // Cache DOM elements
+        const btnSpeak = document.getElementById('btn-speak');
+        const waveform = document.getElementById('waveform');
+        const statusText = document.getElementById('sim-status-text');
+        const dotStatus = document.getElementById('sim-dot-status');
+        const chatArea = document.getElementById('sim-chat-area');
+        const simModal = document.getElementById('sim-modal');
+        const modalDesc = document.getElementById('modal-desc-text');
+        
+        // Setup initial state
+        resetStepper();
+
+        function clearAllTimeouts() {
+            simIntervals.forEach(id => clearTimeout(id));
+            simIntervals = [];
+        }
+
+        function toggleSpeech() {
+            if (isSimulating) {
+                stopSim();
+            } else {
+                startSim(activeScenario);
+            }
+        }
+
+        function startScenario(scenario) {
+            activeScenario = scenario;
+            stopSim();
+            startSim(scenario);
+        }
+
+        function resetStepper() {
+            document.querySelectorAll('.step-item').forEach(item => {
+                item.className = 'step-item';
+            });
+        }
+
+        function setStepActive(stepId) {
+            resetStepper();
+            const activeStep = document.getElementById(stepId);
+            if (activeStep) {
+                activeStep.classList.add('active');
+            }
+            // Mark previous steps as done
+            if (stepId === 'step-pii') {
+                document.getElementById('step-match').className = 'step-item done';
+            } else if (stepId === 'step-fill') {
+                document.getElementById('step-match').className = 'step-item done';
+                document.getElementById('step-pii').className = 'step-item done';
+            }
+        }
+
+        function setAllStepsDone() {
+            document.querySelectorAll('.step-item').forEach(item => {
+                item.className = 'step-item done';
+            });
+        }
+
+        function setStatus(text, type = 'idle') {
+            statusText.textContent = text;
+            if (type === 'idle') {
+                dotStatus.style.backgroundColor = '#10b981'; // Green
+            } else if (type === 'recording') {
+                dotStatus.style.backgroundColor = '#ef4444'; // Red
+            } else if (type === 'processing') {
+                dotStatus.style.backgroundColor = '#f59e0b'; // Orange
+            }
+        }
+
+        function startSim(scenario = 'bhyt') {
+            if (isSimulating) return;
+            isSimulating = true;
+            resetStepper();
+            clearAllTimeouts();
+            
+            btnSpeak.classList.add('active');
+            waveform.classList.add('active');
+            setStatus('Đang ghi âm giọng nói...', 'recording');
+            chatArea.innerHTML = ''; // Clear chat area
+            
+            if (scenario === 'bhyt') {
+                runBHYTSteps();
+            } else {
+                runThuongTruSteps();
+            }
+        }
+
+        function stopSim() {
+            isSimulating = false;
+            clearAllTimeouts();
+            
+            btnSpeak.classList.remove('active');
+            waveform.classList.remove('active');
+            setStatus('Sẵn sàng hỗ trợ bác', 'idle');
+            simModal.classList.remove('show');
+            resetStepper();
+        }
+
+        function addChatBubble(text, sender, isSecure = false) {
+            const bubble = document.createElement('div');
+            bubble.classList.add('bubble');
+            if (sender === 'user') {
+                bubble.classList.add('bubble-user');
+                bubble.innerHTML = `<strong>Bác:</strong> "${text}"`;
+            } else {
+                bubble.classList.add(isSecure ? 'bubble-secure' : 'bubble-ai');
+                bubble.innerHTML = `<strong>EasyDVC:</strong> "${text}"`;
+            }
+            chatArea.appendChild(bubble);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // BHYT Reissue Scenario
+        function runBHYTSteps() {
+            // Step 1: User speaks intent
+            simIntervals.push(setTimeout(() => {
+                setStepActive('step-match');
+                addChatBubble('Tôi muốn đăng ký làm lại cái thẻ bảo hiểm y tế bị mất', 'user');
+                setStatus('Codex DOM Annotator: Khớp biểu mẫu...', 'processing');
+                waveform.classList.remove('active');
+                
+                // Step 2: AI answers
+                simIntervals.push(setTimeout(() => {
+                    addChatBubble('Dạ được chứ bác. Cháu đã gán nhãn và nhận dạng được biểu mẫu "Cấp lại thẻ BHYT". Bác vui lòng đọc số định danh (CCCD) và số điện thoại nhé.', 'ai');
+                    setStatus('Đang ghi âm câu trả lời...', 'recording');
+                    waveform.classList.add('active');
+                    
+                    // Step 3: User speaks sensitive PII data
+                    simIntervals.push(setTimeout(() => {
+                        setStepActive('step-pii');
+                        addChatBubble('Số căn cước tôi là 037199001234, còn số điện thoại là 0912345678', 'user');
+                        setStatus('PII Shield: Đang mã hóa cục bộ...', 'processing');
+                        waveform.classList.remove('active');
+                        
+                        // Step 4: AI response with tokens & modal confirmation
+                        simIntervals.push(setTimeout(() => {
+                            addChatBubble('Đã phát hiện dữ liệu nhạy cảm. Lá chắn PII Shield đã che giấu thành công số định danh của bác thành: [🔒 CCCD_1] và số điện thoại thành [🔒 PHONE_1]. Bác có đồng ý điền dữ liệu thật vào tờ khai không?', 'ai', true);
+                            
+                            // Show modal
+                            modalDesc.innerHTML = `Bác có đồng ý khôi phục và điền thông tin thật <strong>037199001234</strong> (CCCD) và <strong>0912345678</strong> (SĐT) vào các ô biểu mẫu gốc không?`;
+                            simModal.classList.add('show');
+                            setStatus('Đang đợi phê duyệt PII...', 'idle');
+                        }, 2000));
+
+                    }, 5000));
+
+                }, 3000));
+
+            }, 2000));
+        }
+
+        function confirmPII() {
+            simModal.classList.remove('show');
+            addChatBubble('Bác đồng ý. Điền thông tin giúp bác nhé.', 'user');
+            setStatus('Codex: Đang giải mã RAM & điền biểu mẫu...', 'processing');
+            setStepActive('step-fill');
+            
+            simIntervals.push(setTimeout(() => {
+                setAllStepsDone();
+                
+                // Success Bubble & peak-end delighter card
+                addChatBubble('Đã khôi phục dữ liệu cục bộ trong bộ nhớ RAM trình duyệt. Hoàn thành điền thông tin CCCD và Số điện thoại thật vào tờ khai dịch vụ công thành công!', 'ai', true);
+                
+                const successCard = document.createElement('div');
+                successCard.className = 'sim-success-card';
+                successCard.innerHTML = `
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">🎉 Thành công rực rỡ!</div>
+                    <div style="font-size: 13px;">Tờ khai đã điền xong 100%. EasyDVC đã bảo vệ thông tin bác an toàn.</div>
+                `;
+                chatArea.appendChild(successCard);
+                chatArea.scrollTop = chatArea.scrollHeight;
+                
+                stopSim();
+                // Keep history and success state visible
+                setStatus('Giao dịch hoàn tất an toàn!', 'idle');
+            }, 2000));
+        }
+
+        function cancelPII() {
+            simModal.classList.remove('show');
+            addChatBubble('Không điền số thật nhé cháu.', 'user');
+            setStatus('Đang hủy bỏ thao tác...', 'processing');
+            
+            simIntervals.push(setTimeout(() => {
+                addChatBubble('Dạ cháu hiểu. Đã hủy bỏ thao tác khôi phục. Các thông tin nhạy cảm của bác không được điền vào biểu mẫu.', 'ai');
+                stopSim();
+            }, 1500));
+        }
+
+        // Residency Register Scenario (Cascading address highlight)
+        function runThuongTruSteps() {
+            simIntervals.push(setTimeout(() => {
+                setStepActive('step-match');
+                addChatBubble('Tôi muốn chuyển hộ khẩu nhập học cho cháu lên thành phố', 'user');
+                setStatus('Codex CLI: Biên dịch ý định hành chính...', 'processing');
+                waveform.classList.remove('active');
+                
+                simIntervals.push(setTimeout(() => {
+                    addChatBubble('Dạ, cháu hiểu ý bác là muốn đăng ký thường trú. Cháu đã mở mẫu đăng ký thường trú. Bác vui lòng đọc địa chỉ nơi chuyển đến (Tỉnh, Huyện, Xã) nhé.', 'ai');
+                    setStatus('Đang ghi âm câu trả lời...', 'recording');
+                    waveform.classList.add('active');
+                    
+                    simIntervals.push(setTimeout(() => {
+                        setStepActive('step-fill');
+                        addChatBubble('Địa chỉ ở Thành phố Hà Nội, Quận Cầu Giấy, Phường Dịch Vọng', 'user');
+                        setStatus('Đang Polling đợi AJAX tải dropdown Tỉnh...', 'processing');
+                        waveform.classList.remove('active');
+                        
+                        // Wait cascade dropdown polling simulations
+                        simIntervals.push(setTimeout(() => {
+                            setStatus('Đang Polling đợi AJAX tải dropdown Huyện...', 'processing');
+                            addChatBubble('Lớp DOM: [✓] Đã chọn Thành phố Hà Nội ➔ Đang thăm dò Quận Cầu Giấy...', 'ai', true);
+                            
+                            simIntervals.push(setTimeout(() => {
+                                setStatus('Đang Polling đợi AJAX tải dropdown Xã...', 'processing');
+                                addChatBubble('Lớp DOM: [✓] Đã chọn Quận Cầu Giấy ➔ Đang thăm dò Phường Dịch Vọng...', 'ai', true);
+                                
+                                simIntervals.push(setTimeout(() => {
+                                    setAllStepsDone();
+                                    addChatBubble('Đã điền tự động thành công địa chỉ 3 cấp hoàn chỉnh vượt độ trễ AJAX!', 'ai');
+                                    
+                                    const successCard = document.createElement('div');
+                                    successCard.className = 'sim-success-card';
+                                    successCard.innerHTML = `
+                                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">🎉 Địa chính đã điền xong!</div>
+                                        <div style="font-size: 13px;">Hệ thống đã polling qua 3 cấp AJAX trơn tru.</div>
+                                    `;
+                                    chatArea.appendChild(successCard);
+                                    chatArea.scrollTop = chatArea.scrollHeight;
+                                    
+                                    stopSim();
+                                    setStatus('Giao dịch hoàn tất an toàn!', 'idle');
+                                }, 2500));
+                                
+                            }, 2000));
+                            
+                        }, 2000));
+
+                    }, 5000));
+                    
+                }, 3000));
+                
+            }, 2000));
+        }
+
+        // Live PII Shield Tester (IKEA Effect)
+        function testLivePII() {
+            const inputField = document.getElementById('ikea-input-field');
+            const resultBox = document.getElementById('ikea-result-box');
+            const val = inputField.value.trim();
+            
+            if (!val) {
+                resultBox.style.display = 'block';
+                resultBox.style.borderLeftColor = 'var(--color-record)';
+                resultBox.innerHTML = '<span style="color:var(--color-record)">Vui lòng nhập số CCCD hoặc SĐT để thử nghiệm.</span>';
+                return;
+            }
+
+            // Simple regex for CCCD (12 digits) or Phone (10 digits)
+            const cccdRegex = /\b\d{12}\b/g;
+            const phoneRegex = /\b(0\d{9})\b/g;
+            
+            let maskedVal = val;
+            let piiDetected = false;
+            let logMsg = '';
+
+            if (cccdRegex.test(val)) {
+                maskedVal = val.replace(cccdRegex, '[🔒 CCCD_MASKED]');
+                piiDetected = true;
+                logMsg = `<strong>Phát hiện CCCD nhạy cảm!</strong><br>Văn bản gốc: <del style="color:var(--color-record)">${val}</del><br>Sau khi lọc: <strong style="color:var(--color-success)">${maskedVal}</strong> (Đã che giấu tại RAM máy khách)`;
+            } else if (phoneRegex.test(val)) {
+                maskedVal = val.replace(phoneRegex, '[🔒 PHONE_MASKED]');
+                piiDetected = true;
+                logMsg = `<strong>Phát hiện SĐT nhạy cảm!</strong><br>Văn bản gốc: <del style="color:var(--color-record)">${val}</del><br>Sau khi lọc: <strong style="color:var(--color-success)">${maskedVal}</strong> (Đã che giấu tại RAM máy khách)`;
+            } else {
+                logMsg = `<strong>Không phát hiện PII nhạy cảm:</strong> "${val}" (Có thể an toàn gửi đi)`;
+            }
+
+            resultBox.style.display = 'block';
+            resultBox.style.borderLeftColor = piiDetected ? 'var(--color-success)' : 'var(--color-primary)';
+            resultBox.innerHTML = logMsg;
+        }
+
+        // Zalo OTP Simulator
+        function triggerOTPSim() {
+            const notif = document.getElementById('otp-notification');
+            notif.classList.add('show');
+            
+            // Hide notification after 5 seconds
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 5000);
+        }
+
+        // FAQ Toggle Accordion
+        function toggleFaq(btn) {
+            const item = btn.parentElement;
+            const content = item.querySelector('.faq-content');
+            
+            // Check if active
+            const isActive = item.classList.contains('active');
+            
+            // Close all
+            document.querySelectorAll('.faq-item').forEach(i => {
+                i.classList.remove('active');
+                i.querySelector('.faq-content').style.maxHeight = null;
+            });
+            
+            if (!isActive) {
+                item.classList.add('active');
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        }
+    </script>
+</body>
+</html>
