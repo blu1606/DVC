@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tổng cục Thuế - Cổng Dịch vụ công Quốc gia</title>
+    
+    <!-- Atkinson Hyperlegible Font for accessibility -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    
+    <!-- Link global style variables -->
+    <link rel="stylesheet" href="/src/style.css">
+
+    <style>
+        :root {
+            --gov-blue: #0f3a6b;
+            --gov-gold: #f59e0b;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text-main);
+            font-family: var(--font-main);
+        }
+
+        .gov-header {
+            background: linear-gradient(135deg, var(--gov-blue) 0%, #1e40af 100%);
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 4px 20px rgba(15, 58, 107, 0.15);
+            border-bottom: 3px solid var(--gov-gold);
+        }
+
+        .gov-header-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .gov-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .gov-logo-badge {
+            background-color: var(--gov-gold);
+            color: var(--gov-blue);
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .gov-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .gov-user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+        }
+
+        .gov-main {
+            max-width: 900px;
+            margin: 32px auto 80px;
+            padding: 0 20px;
+        }
+
+        /* Notice Banner */
+        .gov-notice {
+            background-color: var(--color-secondary-bg);
+            border-left: 4px solid var(--color-primary);
+            color: var(--color-primary-hover);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 24px;
+            font-size: 15px;
+            line-height: 1.6;
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* Soft UI Panels */
+        .gov-panel {
+            background-color: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-soft);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .gov-panel h2 {
+            margin: 0;
+            padding: 16px 20px;
+            font-size: 18px;
+            font-weight: 700;
+            background-color: #f8fafc;
+            border-bottom: 1px solid var(--color-border);
+            color: var(--color-text-main);
+        }
+
+        .gov-panel-body {
+            padding: 24px;
+        }
+
+        /* Search Row */
+        .gov-search-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            align-items: end;
+        }
+
+        .gov-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .gov-field label {
+            font-weight: 700;
+            color: var(--color-text-muted);
+            font-size: 15px;
+        }
+
+        .gov-input, .gov-select {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            font-size: 16px;
+            font-family: var(--font-main);
+            background-color: #ffffff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .gov-input:focus, .gov-select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        /* Table styles */
+        .gov-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+
+        .gov-table th {
+            background-color: #f1f5f9;
+            color: var(--color-text-muted);
+            font-weight: 700;
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .gov-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid var(--color-border);
+            vertical-align: middle;
+        }
+
+        .gov-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .gov-procedure-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .gov-procedure-link:hover {
+            text-decoration: underline;
+        }
+
+        .gov-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .gov-btn-folder {
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background-color: #dcfce7;
+            color: #15803d;
+            text-decoration: none;
+            font-size: 18px;
+            border: 1px solid #bbf7d0;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .gov-btn-folder:hover {
+            background-color: #bbf7d0;
+            transform: scale(1.05);
+        }
+
+        /* Form Layout */
+        .gov-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px 20px;
+        }
+
+        .gov-full {
+            grid-column: 1 / -1;
+        }
+
+        .gov-radio-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .gov-radio-card {
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            font-size: 15px;
+        }
+
+        .gov-radio-card:hover {
+            background-color: #f8fafc;
+            border-color: var(--color-primary);
+        }
+
+        .gov-radio-card input {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .gov-btn {
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .gov-btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .gov-btn-primary:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .gov-btn-success {
+            background-color: var(--color-success);
+            color: white;
+            width: 100%;
+        }
+
+        .gov-btn-success:hover {
+            opacity: 0.9;
+        }
+
+        .gov-status {
+            margin-top: 12px;
+            color: var(--color-text-muted);
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .gov-form-grid, .gov-radio-grid, .gov-search-row {
+                grid-template-columns: 1fr;
+            }
+            .gov-header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="gov-header">
+        <div class="gov-header-container">
+            <div class="gov-title-group">
+                <span class="gov-logo-badge">Cổng dịch vụ</span>
+                <h1 class="gov-title">Tổng cục Thuế - Dịch vụ công Quốc gia</h1>
+            </div>
+            <div class="gov-user-info">
+                <span>Đã đăng nhập:</span>
+                <strong id="username-display">Nguyễn Văn Hùng</strong>
+            </div>
+        </div>
+    </header>
+
+    <main class="gov-main">
+        <div class="gov-notice">
+            📢 <strong>Trang giả lập Dịch vụ công (Thuế TNCN):</strong> Được thiết kế cho mục đích chạy thử nghiệm mô phỏng cùng Extension <strong>EasyDVC</strong>. Các dữ liệu nhập vào trang này được xử lý hoàn toàn tại trình duyệt cục bộ và không được gửi ra ngoài.
+        </div>
+
+        <!-- Tra cứu TTHC -->
+        <section class="gov-panel" id="home-panel">
+            <h2>Tra cứu thủ tục hành chính</h2>
+            <div class="gov-panel-body">
+                <form id="search-form" class="gov-search-row">
+                    <div class="gov-field" style="margin-bottom: 0;">
+                        <label for="maTTHC">Nhập tên hoặc mã thủ tục hành chính</label>
+                        <input id="maTTHC" class="gov-input" name="maTTHC" type="text" placeholder="Ví dụ: 2.002233 hoặc quyết toán thuế TNCN">
+                    </div>
+                    <button class="gov-btn gov-btn-primary" type="submit" id="btn-search">Tìm kiếm</button>
+                </form>
+                <p class="gov-status" id="search-status">Bác có thể tìm thủ tục mã "2.002233" để nộp hồ sơ quyết toán thuế TNCN.</p>
+            </div>
+        </section>
+
+        <!-- Danh sách thủ tục -->
+        <section class="gov-panel" id="procedure-panel">
+            <h2>Danh sách thủ tục</h2>
+            <div class="gov-panel-body">
+                <table class="gov-table">
+                    <thead>
+                        <tr>
+                            <th>Mã thủ tục</th>
+                            <th>Tên thủ tục</th>
+                            <th>Cơ quan thực hiện</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-ma-tthc="2.002233">
+                            <td style="font-weight: 700;">2.002233</td>
+                            <td>
+                                <a href="#" class="gov-procedure-link">
+                                    Quyết toán thuế / Hoàn thuế thu nhập cá nhân trực tiếp với cơ quan thuế
+                                </a>
+                            </td>
+                            <td>Tổng cục Thuế</td>
+                            <td>
+                                <div class="gov-actions">
+                                    <button class="gov-btn-folder nop-hoso-btn" ma-tthc="2.002233" title="Nộp hồ sơ">📁</button>
+                                    <span style="font-weight: bold; font-size: 14px;">Nộp hồ sơ</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Chọn tờ khai -->
+        <section class="gov-panel hidden" id="declaration-panel">
+            <h2>Chọn tờ khai quyết toán thuế</h2>
+            <div class="gov-panel-body">
+                <div class="gov-field">
+                    <label for="selectToKhai">Tờ khai quyết toán thuế</label>
+                    <select id="selectToKhai" class="gov-select" name="modalSelectMaToKhai">
+                        <option value="">-- Chọn tờ khai --</option>
+                        <option value="952">02/QTT-TNCN - Tờ khai quyết toán thuế thu nhập cá nhân (TT80/2021)</option>
+                        <option value="1000" selected>02/QTT-TNCN_TKHAI_GOI_Y - Tờ khai gợi ý (TT80/2021)</option>
+                        <option value="392">02/QTT-TNCN - Tờ khai quyết toán thuế thu nhập cá nhân (TT92/2015)</option>
+                    </select>
+                </div>
+                <button class="gov-btn gov-btn-primary" type="button" onclick="selectData()">Tiếp tục</button>
+            </div>
+        </section>
+
+        <!-- Tờ khai chi tiết -->
+        <section class="gov-panel hidden" id="tax-form-panel">
+            <h2>Quyết toán thuế thu nhập cá nhân (Mẫu số 02/QTT-TNCN)</h2>
+            <div class="gov-panel-body">
+                <form id="tax-form">
+                    <div class="gov-form-grid">
+                        <div class="gov-field">
+                            <label for="fullname">Họ và tên người nộp</label>
+                            <input id="fullname" class="gov-input" name="fullname" type="text" placeholder="Họ tên tự động hoặc nhập mới">
+                        </div>
+                        <div class="gov-field">
+                            <label for="cccd-num">Số định danh/CCCD</label>
+                            <input id="cccd-num" class="gov-input" name="cccd-num" type="text" placeholder="Số định danh/CCCD">
+                        </div>
+                        <div class="gov-field">
+                            <label for="phone">Số điện thoại</label>
+                            <input id="phone" class="gov-input" name="phone" type="text" placeholder="Số điện thoại liên lạc">
+                        </div>
+                        <div class="gov-field">
+                            <label for="tax-code">Mã số thuế</label>
+                            <input id="tax-code" class="gov-input" name="tax-code" type="text" placeholder="Mã số thuế 10 số">
+                        </div>
+                        <div class="gov-field">
+                            <label for="taxable-income">Tổng thu nhập chịu thuế</label>
+                            <input id="taxable-income" class="gov-input" name="taxable-income" type="text" placeholder="Ví dụ: 180000000">
+                        </div>
+                        <div class="gov-field">
+                            <label for="tax-deducted">Tổng số thuế đã khấu trừ</label>
+                            <input id="tax-deducted" class="gov-input" name="tax-deducted" type="text" placeholder="Ví dụ: 12000000">
+                        </div>
+                        <div class="gov-field">
+                            <label for="tax-refund">Số thuế đề nghị hoàn</label>
+                            <input id="tax-refund" class="gov-input" name="tax-refund" type="text" placeholder="Ví dụ: 2500000">
+                        </div>
+                        <div class="gov-field">
+                            <label for="bank-account">Số tài khoản ngân hàng</label>
+                            <input id="bank-account" class="gov-input" name="bank-account" type="text" placeholder="Số tài khoản nhận tiền hoàn">
+                        </div>
+                        <div class="gov-field">
+                            <label for="bank-name">Ngân hàng nhận hoàn</label>
+                            <input id="bank-name" class="gov-input" name="bank-name" type="text" placeholder="Ví dụ: Vietcombank">
+                        </div>
+                        <div class="gov-field gov-full">
+                            <label>Thông tin nơi làm việc</label>
+                            <div class="gov-radio-grid">
+                                <label class="gov-radio-card" for="change-workplace-yes">
+                                    <input id="change-workplace-yes" name="change-workplace" type="radio" value="yes">
+                                    Có thay đổi nơi làm việc trong năm
+                                </label>
+                                <label class="gov-radio-card" for="change-workplace-no">
+                                    <input id="change-workplace-no" name="change-workplace" type="radio" value="no" checked>
+                                    Không thay đổi nơi làm việc
+                                </label>
+                                <label class="gov-radio-card" for="has-contract-yes">
+                                    <input id="has-contract-yes" name="has-contract" type="radio" value="yes" checked>
+                                    Có hợp đồng lao động trên 3 tháng
+                                </label>
+                                <label class="gov-radio-card" for="has-contract-no">
+                                    <input id="has-contract-no" name="has-contract" type="radio" value="no">
+                                    Không có hợp đồng hoặc đã nghỉ việc
+                                </label>
+                                <label class="gov-radio-card" for="tax-deducted-source-yes">
+                                    <input id="tax-deducted-source-yes" name="tax-deducted-source" type="radio" value="yes" checked>
+                                    Đã khấu trừ thuế tại nguồn
+                                </label>
+                                <label class="gov-radio-card" for="tax-deducted-source-no">
+                                    <input id="tax-deducted-source-no" name="tax-deducted-source" type="radio" value="no">
+                                    Chưa khấu trừ hoặc khấu trừ thiếu
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="gov-btn gov-btn-success gov-full" type="submit" id="btn-submit" style="margin-top: 24px;">Nộp tờ khai quyết toán</button>
+                    <p class="gov-status" id="submit-status" style="font-weight: bold; text-align: center; color: var(--color-success);"></p>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const searchForm = document.getElementById("search-form");
+        const searchStatus = document.getElementById("search-status");
+        const procedurePanel = document.getElementById("procedure-panel");
+        const declarationPanel = document.getElementById("declaration-panel");
+        const taxFormPanel = document.getElementById("tax-form-panel");
+
+        searchForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const query = document.getElementById("maTTHC").value.trim();
+            searchStatus.textContent = query
+                ? `Đã tìm thấy thủ tục phù hợp với "${query}". Bấm icon folder xanh hoặc nút nộp hồ sơ.`
+                : "Đã hiển thị thủ tục quyết toán thuế TNCN mã 2.002233.";
+            procedurePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        document.querySelector(".nop-hoso-btn").addEventListener("click", (event) => {
+            event.preventDefault();
+            declarationPanel.classList.remove("hidden");
+            declarationPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        function selectData() {
+            taxFormPanel.classList.remove("hidden");
+            taxFormPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        document.getElementById("tax-form").addEventListener("submit", (event) => {
+            event.preventDefault();
+            document.getElementById("submit-status").textContent = "✓ Mock: Đã ghi nhận nộp tờ khai quyết toán thuế TNCN lên hệ thống giả lập thành công!";
+        });
+    </script>
+</body>
+</html>
